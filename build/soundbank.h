@@ -1,0 +1,13 @@
+#define MOD_FANFARE	0
+#define MOD_MBAT	1
+#define MOD_TOWNSTOLEN	2
+#define SFX_ATTACK_E	88
+#define SFX_ATTACK_P	89
+#define SFX_CANCEL	90
+#define SFX_CONFIRM	91
+#define SFX_CURSOR	92
+#define SFX_HEAL	93
+#define SFX_SPELL	94
+#define MSL_NSONGS	3
+#define MSL_NSAMPS	95
+#define MSL_BANKSIZE	98

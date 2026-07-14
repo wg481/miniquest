@@ -1,0 +1,231 @@
+{
+ "exp_curve": [
+  0,
+  0,
+  7,
+  23,
+  47,
+  90,
+  160,
+  270,
+  430,
+  660,
+  990
+ ],
+ "players": [
+  {
+   "id": "hero",
+   "name": "HERO",
+   "hp": 24,
+   "mp": 0,
+   "atk": 10,
+   "def": 8,
+   "agi": 6,
+   "ghp": 6,
+   "gmp": 0,
+   "gatk": 2,
+   "gdef": 1,
+   "gagi": 1,
+   "spells": []
+  },
+  {
+   "id": "mage",
+   "name": "MAGE",
+   "hp": 16,
+   "mp": 8,
+   "atk": 6,
+   "def": 5,
+   "agi": 8,
+   "ghp": 4,
+   "gmp": 3,
+   "gatk": 1,
+   "gdef": 1,
+   "gagi": 2,
+   "spells": [
+    "heal",
+    "fire",
+    "healmore",
+    "fire2",
+    "healall",
+    "fire3"
+   ]
+  }
+ ],
+ "enemies": [
+  {
+   "id": "slime",
+   "name": "Slime",
+   "sprite": "slime.png",
+   "hp": 8,
+   "atk": 6,
+   "def": 4,
+   "agi": 4,
+   "exp": 2,
+   "gold": 3
+  },
+  {
+   "id": "troll",
+   "name": "Troll",
+   "sprite": "troll.png",
+   "hp": 20,
+   "atk": 12,
+   "def": 8,
+   "agi": 5,
+   "exp": 8,
+   "gold": 12
+  }
+ ],
+ "troops": [
+  {
+   "id": "slime_solo",
+   "name": "a Slime",
+   "members": [
+    "slime"
+   ]
+  },
+  {
+   "id": "slime_pair",
+   "name": "two Slimes",
+   "members": [
+    "slime",
+    "slime"
+   ]
+  },
+  {
+   "id": "troll_solo",
+   "name": "a Troll",
+   "members": [
+    "troll"
+   ]
+  },
+  {
+   "id": "mixed",
+   "name": "a Slime and a Troll",
+   "members": [
+    "slime",
+    "troll"
+   ]
+  },
+  {
+   "id": "troll_pair",
+   "name": "two Trolls",
+   "members": [
+    "troll",
+    "troll"
+   ]
+  }
+ ],
+ "items": [
+  {
+   "id": "herb",
+   "name": "Herb",
+   "heal": 10,
+   "price": 10
+  },
+  {
+   "id": "herb2",
+   "name": "Supherb",
+   "heal": 10,
+   "price": 20
+  }
+ ],
+ "encounters": [
+  {
+   "id": "enc_overworld_0",
+   "rate": 14,
+   "troops": [
+    [
+     "slime_solo",
+     2
+    ],
+    [
+     "slime_pair",
+     1
+    ]
+   ]
+  },
+  {
+   "id": "enc_overworld_1",
+   "rate": 14,
+   "troops": [
+    [
+     "troll_solo",
+     2
+    ],
+    [
+     "mixed",
+     2
+    ],
+    [
+     "slime_pair",
+     1
+    ]
+   ]
+  }
+ ],
+ "flags": [
+  "jenkins_chest",
+  "grak_beaten",
+  "overworld",
+  "welcome_message"
+ ],
+ "spells": [
+  {
+   "id": "heal",
+   "name": "Heal",
+   "cost": 4,
+   "level": 1,
+   "effect": "heal",
+   "power": 10
+  },
+  {
+   "id": "fire",
+   "name": "Fire",
+   "cost": 3,
+   "level": 2,
+   "effect": "fire",
+   "power": 8
+  },
+  {
+   "id": "healmore",
+   "name": "Healmore",
+   "cost": 8,
+   "level": 5,
+   "effect": "heal",
+   "power": 30
+  },
+  {
+   "id": "fire2",
+   "name": "Firebolt",
+   "cost": 6,
+   "level": 6,
+   "effect": "fire",
+   "power": 18
+  },
+  {
+   "id": "healall",
+   "name": "Healall",
+   "cost": 12,
+   "level": 8,
+   "effect": "heal",
+   "power": 20,
+   "all": true
+  },
+  {
+   "id": "fire3",
+   "name": "Firestorm",
+   "cost": 10,
+   "level": 9,
+   "effect": "fire",
+   "power": 14,
+   "all": true
+  }
+ ],
+ "bosses": [
+  {
+   "id": "grak",
+   "sprite": "grak.png",
+   "troop": "troll_pair"
+  }
+ ]
+}

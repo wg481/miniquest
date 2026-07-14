@@ -1,0 +1,225 @@
+{
+ "tilesets": [
+  {
+   "id": "default",
+   "image": "gfx/tilesets/default.png",
+   "tiles": [
+    {
+     "name": "Grass",
+     "solid": false
+    },
+    {
+     "name": "Tree",
+     "solid": true
+    },
+    {
+     "name": "Water",
+     "solid": true
+    },
+    {
+     "name": "Path",
+     "solid": false
+    },
+    {
+     "name": "Black",
+     "solid": true
+    },
+    {
+     "name": "Blank",
+     "solid": false
+    },
+    {
+     "name": "Mountain",
+     "solid": true
+    },
+    {
+     "name": "House",
+     "solid": false
+    },
+    {
+     "name": "Wood",
+     "solid": false
+    },
+    {
+     "name": "Sign tile",
+     "solid": true
+    },
+    {
+     "name": "Roof",
+     "solid": true
+    },
+    {
+     "name": "Roof slant L",
+     "solid": true
+    },
+    {
+     "name": "Roof slant R",
+     "solid": true
+    },
+    {
+     "name": "Brick",
+     "solid": true
+    },
+    {
+     "name": "Door",
+     "solid": false
+    },
+    {
+     "name": "Roof slant L (grass)",
+     "solid": true
+    },
+    {
+     "name": "Roof slant R (grass)",
+     "solid": true
+    },
+    {
+     "name": "Chest",
+     "solid": true
+    },
+    {
+     "name": "Tile 18",
+     "solid": false
+    },
+    {
+     "name": "Tile 19",
+     "solid": false
+    },
+    {
+     "name": "Tile 20",
+     "solid": false
+    },
+    {
+     "name": "Tile 21",
+     "solid": false
+    },
+    {
+     "name": "Tile 22",
+     "solid": false
+    },
+    {
+     "name": "Tile 23",
+     "solid": false
+    }
+   ],
+   "chest_tile": 17,
+   "void_tile": 4,
+   "roof_base": 0,
+   "roof_composite": [
+    [
+     11,
+     15
+    ],
+    [
+     12,
+     16
+    ]
+   ]
+  },
+  {
+   "id": "testset",
+   "image": "gfx/tilesets/testset.png",
+   "tiles": [
+    {
+     "name": "Tile 0",
+     "solid": false
+    },
+    {
+     "name": "Tile 1",
+     "solid": true
+    },
+    {
+     "name": "Tile 2",
+     "solid": false
+    },
+    {
+     "name": "Tile 3",
+     "solid": false
+    },
+    {
+     "name": "Tile 4",
+     "solid": false
+    },
+    {
+     "name": "Tile 5",
+     "solid": false
+    },
+    {
+     "name": "Tile 6",
+     "solid": false
+    },
+    {
+     "name": "Tile 7",
+     "solid": false
+    },
+    {
+     "name": "Tile 8",
+     "solid": false
+    },
+    {
+     "name": "Tile 9",
+     "solid": false
+    },
+    {
+     "name": "Tile 10",
+     "solid": false
+    },
+    {
+     "name": "Tile 11",
+     "solid": false
+    },
+    {
+     "name": "Tile 12",
+     "solid": false
+    },
+    {
+     "name": "Tile 13",
+     "solid": false
+    },
+    {
+     "name": "Tile 14",
+     "solid": false
+    },
+    {
+     "name": "Tile 15",
+     "solid": false
+    },
+    {
+     "name": "Tile 16",
+     "solid": false
+    },
+    {
+     "name": "Tile 17",
+     "solid": false
+    },
+    {
+     "name": "Tile 18",
+     "solid": false
+    },
+    {
+     "name": "Tile 19",
+     "solid": false
+    },
+    {
+     "name": "Tile 20",
+     "solid": false
+    },
+    {
+     "name": "Tile 21",
+     "solid": false
+    },
+    {
+     "name": "Tile 22",
+     "solid": false
+    },
+    {
+     "name": "Tile 23",
+     "solid": false
+    }
+   ],
+   "chest_tile": null,
+   "void_tile": 2,
+   "roof_base": 0,
+   "roof_composite": []
+  }
+ ]
+}

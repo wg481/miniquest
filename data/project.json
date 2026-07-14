@@ -1,0 +1,10 @@
+{
+ "name": "Miniquest Sample",
+ "title_image": "gfx/title.png",
+ "start_items": {
+  "herb": 2
+ },
+ "title_music": null,
+ "battle_music": "mbat",
+ "victory_music": "fanfare"
+}
