@@ -14,7 +14,7 @@ Scripts are attached to a map event with one of three triggers:
 | `on_tile` | the player steps onto its tile (optional gate flag) |
 
 A map can have up to 8 events. Scripts run to completion and block
-the game while they do — the player watches the cutscene.
+the game while they do.
 
 ## Ground rules
 
