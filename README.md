@@ -34,7 +34,7 @@ A small RPG Maker-like engine that compiles out to the DS(i).
 
 * A build button in engine.
 
-Read the [Documentation](Documentation.md) for how to use Miniquest and Questscript.
+Read the [Documentation](DOCUMENTATION.md) for how to use Miniquest and Questscript.
 
 Base files include a sample project to help you get started.
 
