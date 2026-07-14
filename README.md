@@ -38,6 +38,10 @@ Read the [Documentation](DOCUMENTATION.md) for how to use Miniquest and Questscr
 
 Base files include a sample project to help you get started.
 
+## To-do:
+[] Third party member.
+[] Dynamic party member support.
+
 ## Credits:
 
 devkitPro
