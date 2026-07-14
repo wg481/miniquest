@@ -8,6 +8,8 @@ A small RPG Maker-like engine that compiles out to the DS(i).
 
 * [devkitPro](https://github.com/devkitPro/installer/releases) installed to C:\devkitPro.
 
+* Only verified to work on Windows for now.
+
 ## Capabilities:
 
 * 2 party members. (Defaults to a HERO and a MAGE.)
