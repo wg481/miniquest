@@ -1,4 +1,4 @@
-## Miniquest Documentation
+# Miniquest Documentation
 
 Here, I will go through pretty much the full engine and what can be changed inside the editor/files to make your game.
 
@@ -202,4 +202,4 @@ Press `Apply` to save changes.
 
 ## Events:
 
-See [Questscript](questscript.md) for now to program in the proprietary engine scripting language!
+See [Questscript](Questscript.md) for now to program in the proprietary engine scripting language!
