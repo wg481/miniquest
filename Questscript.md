@@ -184,13 +184,12 @@ it runs on *both* paths, after the block finishes.
 - An `on_tile` event re-arms when the player steps off the tile —
   step back on and it fires again. The event's optional gate flag
   fires the event only when that flag is **set** (good for opening
-  a path after a quest). For a one-shot — something that should
-  happen only the *first* time — check and set a flag inside the
+  a path after a quest). For a single event, check and set a flag inside the
   script instead:
   
   ```
   if shrine_visited
-      say "The shrine is silent."
+      
   else
       say "A voice: 'Only once may you ask.'"
       set_flag shrine_visited 1
