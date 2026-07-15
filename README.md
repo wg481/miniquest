@@ -15,7 +15,7 @@ Provided you meet all the requirements, extract the zip... somewhere. Then, usin
 
 ## Capabilities:
 
-* 2 party members. (Defaults to a HERO and a MAGE.)
+* 3 onscreen party members. 6 in the save.
 
 * 8 encounter zones per map.
 
