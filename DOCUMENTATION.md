@@ -202,4 +202,4 @@ Press `Apply` to save changes. Press `Add` for a new character, and `Delete` to 
 
 ## Events:
 
-See [Questscript](questscript.md) for now to program in the proprietary engine scripting language!
+See [Questscript](Questscript.md) for now to program in the proprietary engine scripting language!
