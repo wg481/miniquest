@@ -49,6 +49,8 @@ Me
 
 devkitPro
 
+Maxmod
+
 GFX art sourced from myself, rruss01 (hero, slime), Oracle of Ages/Seasons (troll, NPC1, NPC2)
 
 Sound made by me.
