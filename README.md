@@ -10,6 +10,9 @@ A small RPG Maker-like engine that compiles out to the DS(i).
 
 * Only verified to work on Windows for now.
 
+## Setup:
+Provided you meet all the requirements, extract the zip... somewhere. Then, using Python, run `tools\new_project.py`, or, if you want to research the example, run `tools\map_editor.py`.
+
 ## Capabilities:
 
 * 2 party members. (Defaults to a HERO and a MAGE.)
