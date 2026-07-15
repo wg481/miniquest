@@ -45,10 +45,12 @@ To start a new project, run `python3 tools\\new_project.py C:\\path\\to\\MyGame 
 
 ## Credits:
 
-devkitPro
+Me
 
-Programmed by me with help from generative AI.
+devkitPro
 
 GFX art sourced from myself, rruss01 (hero, slime), Oracle of Ages/Seasons (troll, NPC1, NPC2)
 
 Sound made by me.
+
+Utilized help from Generative AI.
