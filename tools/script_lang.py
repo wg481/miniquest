@@ -18,6 +18,8 @@ Language (one command per line, tab-indented blocks):
 	    lose
 	        say "Beaten... but spared."
 	    end                     loss heals party + runs lose body
+	join <player_id>            full party = message, continues
+	leave <player_id>           last member = silent no-op
 	if <flag_id> ... [else ...] end
 	yesno "prompt" ... [no ...] end
 
@@ -33,7 +35,7 @@ SAY_LINES = 6
 # ---- opcodes: keep in sync with include/script.h ----
 OP_END, OP_SAY, OP_SET_FLAG, OP_GIVE, OP_WARP, OP_HEAL, \
 	OP_BATTLE, OP_BATTLE_TRY, OP_JZ, OP_JMP, OP_PUSH_FLAG, \
-	OP_CHOICE = range(12)
+	OP_CHOICE, OP_JOIN, OP_LEAVE = range(14)
 
 MAX_GIVE = 99
 
@@ -145,6 +147,11 @@ def _lex(text):
 			if len(a) != 1:
 				raise ScriptError(ln, "battle needs <troop>")
 			stmt = ("battle", _ident(ln, a[0], "troop"))
+		elif kw in ("join", "leave"):
+			a = rest.split()
+			if len(a) != 1:
+				raise ScriptError(ln, "%s needs <player>" % kw)
+			stmt = (kw, _ident(ln, a[0], "player"))
 		elif kw == "if":
 			a = rest.split()
 			if len(a) != 1:
@@ -274,18 +281,20 @@ class Refs:
 	"""Orderings from database.json / maps.json used to resolve
 	identifiers to engine indices."""
 
-	def __init__(self, flags, items, maps, troops):
+	def __init__(self, flags, items, maps, troops, players=()):
 		self.flags = {f: i for i, f in enumerate(flags)}
 		self.items = {f: i for i, f in enumerate(items)}
 		self.maps = {f: i for i, f in enumerate(maps)}
 		self.troops = {f: i for i, f in enumerate(troops)}
+		self.players = {f: i for i, f in enumerate(players)}
 
 	@classmethod
 	def from_data(cls, db, mapsdata):
 		return cls(db.get("flags", []),
 		           [i["id"] for i in db.get("items", [])],
 		           [m["cid"] for m in mapsdata["maps"]],
-		           [t["id"] for t in db.get("troops", [])])
+		           [t["id"] for t in db.get("troops", [])],
+		           [p["id"] for p in db.get("players", [])])
 
 
 def _resolve(ln, table, kind, ident):
@@ -320,6 +329,8 @@ def check_refs(ast, refs):
 			check_refs(node[2], refs)
 			if node[3] is not None:
 				check_refs(node[3], refs)
+		elif k in ("join", "leave"):
+			_resolve(0, refs.players, "player", node[1])
 		elif k == "say":
 			wrap_say(node[1])
 
@@ -340,6 +351,7 @@ _KIND_KEYWORDS = {
 	"item": ("give",),
 	"map": ("warp",),
 	"troop": ("battle",),
+	"player": ("join", "leave"),
 }
 
 
@@ -377,6 +389,16 @@ def uses_ident(text, kind, ident):
 	_rewrite_lines(text, kind,
 	               lambda a: hit.append(a) or a if a == ident else a)
 	return bool(hit)
+
+
+def uses_leave(text, ident):
+	"""True when the script has a `leave` of this player (used by the
+	editor's could-empty-the-party warning)."""
+	for raw in text.split("\n"):
+		parts = raw.lstrip("\t").split()
+		if len(parts) == 2 and parts[0] == "leave" and parts[1] == ident:
+			return True
+	return False
 
 
 # -------------------------------------------------------------compile
@@ -425,6 +447,12 @@ def compile_script(ast, refs, addstr):
 				u8(node[3])
 			elif k == "heal":
 				u8(OP_HEAL)
+			elif k == "join":
+				u8(OP_JOIN)
+				u16(refs.players[node[1]])
+			elif k == "leave":
+				u8(OP_LEAVE)
+				u16(refs.players[node[1]])
 			elif k == "battle":
 				if node[2] is None:
 					u8(OP_BATTLE)

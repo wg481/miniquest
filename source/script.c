@@ -209,6 +209,36 @@ void scriptRun(int index)
 			reg = choiceRun(scriptText + off);
 			break;
 		}
+		case OP_JOIN: {
+			int pl = p[0] | (p[1] << 8);
+			p += 2;
+			int r = partyJoin(pl);
+			char buf[48];
+			if (r == JOIN_OK) {
+				uiStatus();
+				snprintf(buf, sizeof buf, "%s joins the party!",
+				         party.roster[pl].name);
+				uiMessage(buf);
+			} else if (r == JOIN_FULL) {
+				uiMessage("The party is full!");
+			}                      /* already in: silent no-op */
+			break;
+		}
+		case OP_LEAVE: {
+			int pl = p[0] | (p[1] << 8);
+			p += 2;
+			if (partyLeave(pl) == LEAVE_OK) {
+				uiStatus();
+				char buf[48];
+				snprintf(buf, sizeof buf,
+				         "%s leaves the party.",
+				         party.roster[pl].name);
+				uiMessage(buf);
+			}   /* absent or last member: silent no-op (the
+			     * editor warns when a script could empty the
+			     * party) */
+			break;
+		}
 		default:
 			return;                /* corrupt bytecode: bail */
 		}

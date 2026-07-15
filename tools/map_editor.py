@@ -44,6 +44,7 @@ import gen_scripts
 import script_lang
 import migrate_encounters
 import migrate_tilesets
+import migrate_party
 
 ROOT = gen_maps.ROOT
 ZOOM = 2
@@ -90,6 +91,7 @@ class Editor:
 		self.project = jload("project.json")
 		self.migrated = migrate_encounters.migrate(self.maps, self.db)
 		self.migrated |= migrate_tilesets.migrate(self.maps, ROOT)
+		self.migrated |= migrate_party.migrate(self.db, self.project)
 		self.tilesets = jload("tilesets.json")
 		self.config = dict(DEFAULT_CONFIG)
 		cfg = os.path.join(ROOT, "data", "editor_config.json")
@@ -166,6 +168,7 @@ class Editor:
 					       "NPC alt dialog")
 				bosses = {b["id"] for b in self.db.get("bosses", [])}
 				nstems = set(self.npc_sprite_stems())
+				players = {p["id"] for p in self.db["players"]}
 				for np in m.get("npcs", []):
 					if np.get("boss") and np["boss"] not in bosses:
 						raise SystemExit("%s: unknown boss %r"
@@ -174,6 +177,11 @@ class Editor:
 						raise SystemExit(
 							"%s: NPC sprite %r not found in gfx/npcs/"
 							% (m["cid"], np["sprite"]))
+					if np.get("joins") and np["joins"] not in players:
+						raise SystemExit("%s: unknown player %r"
+						                 % (m["cid"], np["joins"]))
+					ckflag(m["cid"], np.get("hidden_when"),
+					       "NPC hidden_when")
 				for w in m.get("warps", []):
 					ckflag(m["cid"], w.get("flag"), "warp gate")
 				for ch in m.get("chests", []):
@@ -184,7 +192,27 @@ class Editor:
 		except SystemExit as e:
 			messagebox.showerror("Validation", str(e))
 			return False
+		self.warn_leave_empty()
 		return True
+
+	def warn_leave_empty(self):
+		"""Non-fatal: a script that leaves the sole starting member
+		could try to empty the party (the engine ignores it at
+		runtime, so the cutscene silently misbehaves instead)."""
+		start = self.project.get("start_party") or []
+		if len(start) != 1:
+			return
+		sole = start[0]
+		hits = [m["cid"] for m in self.maps["maps"]
+		        if any(script_lang.uses_leave(ev.get("script", ""),
+		                                      sole)
+		               for ev in m.get("events", []))]
+		if hits:
+			messagebox.showwarning("Scripts",
+				"A script leaves %r, the only starting member.\n"
+				"Leaving the last member is IGNORED at runtime --\n"
+				"make sure someone joins first.\nMaps: %s"
+				% (sole, ", ".join(hits)))
 
 	def save_all(self):
 		self.apply_project()
@@ -552,6 +580,13 @@ class Editor:
 		return sorted(os.path.splitext(f)[0] for f in os.listdir(bdir)
 		              if f.lower().endswith(".png"))
 
+	def player_sprite_stems(self):
+		pdir = os.path.join(ROOT, "gfx", "players")
+		if not os.path.isdir(pdir):
+			return []
+		return sorted(os.path.splitext(f)[0] for f in os.listdir(pdir)
+		              if f.lower().endswith(".png"))
+
 	def npc_sprite_stems(self):
 		ndir = os.path.join(ROOT, "gfx", "npcs")
 		if not os.path.isdir(ndir):
@@ -876,6 +911,18 @@ class Editor:
 				             textvariable=bv, state="readonly",
 				             width=14).pack(side="left", padx=4)
 
+				jf = ttk.Frame(dlg)
+				jf.pack(anchor="w", padx=6, pady=(4, 0), fill="x")
+				ttk.Label(jf, text="Joins party (on talk):") \
+				   .pack(side="left")
+				jv = tk.StringVar(value=ent.get("joins") or "(none)")
+				ttk.Combobox(jf, values=["(none)"] +
+				             [pl["id"] for pl in self.db["players"]],
+				             textvariable=jv, state="readonly",
+				             width=12).pack(side="left", padx=4)
+				hf = flag_row(dlg, "Hidden when flag set:",
+				              ent.get("hidden_when"))
+
 				spf = ttk.Frame(dlg)
 				spf.pack(anchor="w", padx=6, pady=(4, 0), fill="x")
 				ttk.Label(spf, text="Sprite (16x16):").pack(side="left")
@@ -931,6 +978,15 @@ class Editor:
 							"A boss can't be a healer or "
 							"shopkeeper.", parent=dlg)
 						return
+					joins = None if jv.get() == "(none)" else jv.get()
+					if joins and (sel or healer.get() or boss):
+						messagebox.showerror("NPC",
+							"A recruiter can't be a healer, "
+							"shopkeeper, or boss.", parent=dlg)
+						return
+					result["joins"] = joins
+					result["hidden_when"] = None \
+						if hf.get() == "(none)" else hf.get()
 					result["boss"] = boss
 					result["healer"] = healer.get()
 					result["shop"] = sel
@@ -2171,6 +2227,7 @@ class Editor:
 		refs = []
 		for m in self.maps["maps"]:
 			hit = any(n.get("sets_flag") == fl or
+			          n.get("hidden_when") == fl or
 			          (n.get("alt") or {}).get("flag") == fl
 			          for n in m.get("npcs", []))
 			hit = hit or any(w.get("flag") == fl
@@ -2204,6 +2261,8 @@ class Editor:
 				for n in m.get("npcs", []):
 					if n.get("sets_flag") == old:
 						n["sets_flag"] = new
+					if n.get("hidden_when") == old:
+						n["hidden_when"] = new
 					if (n.get("alt") or {}).get("flag") == old:
 						n["alt"]["flag"] = new
 				for w in m.get("warps", []):
@@ -2474,16 +2533,35 @@ class Editor:
 
 	# ---- players ----
 
+	CLASS_PRESETS = {
+		#         hp  mp atk df ag  ghp gmp gatk gdef gagi  spell effect
+		"hero":   (24,  0, 10, 8, 6,  6,  0,  2,  1,  1,  None),
+		"mage":   (16,  8,  6, 5, 8,  4,  3,  1,  1,  2,  "fire"),
+		"healer": (18, 10,  7, 6, 7,  5,  3,  1,  1,  1,  "heal"),
+	}
+
 	def build_players_tab(self, sub):
 		form, self.p_lb = self.list_section(sub, "Players",
-			self.p_select, None, None)
-		self.p_name = self.entry_row(form, 0, "Name:")
+			self.p_select, self.p_add, self.p_delete)
+		self.p_id = self.entry_row(form, 0, "ID:")
+		self.p_name = self.entry_row(form, 1, "Name (max %d):"
+		                             % gen_db.MAX_PLAYER_NAME)
+		ttk.Label(form, text="Class preset:").grid(row=2, column=0,
+		                                           sticky="w", pady=1)
+		cf = ttk.Frame(form)
+		cf.grid(row=2, column=1, columnspan=2, sticky="w", pady=1)
+		self.p_class = tk.StringVar()
+		ttk.Combobox(cf, textvariable=self.p_class, state="readonly",
+		             width=8, values=list(self.CLASS_PRESETS)) \
+		   .pack(side="left")
+		ttk.Button(cf, text="Apply preset",
+		           command=self.p_preset).pack(side="left", padx=4)
 		self.p_base, self.p_gain = {}, {}
 		labels = [("hp", "HP"), ("mp", "MP"), ("atk", "Attack"),
 		          ("def", "Defense"), ("agi", "Agility")]
-		ttk.Label(form, text="Base").grid(row=1, column=1)
-		ttk.Label(form, text="Per level").grid(row=1, column=2)
-		for r, (key, label) in enumerate(labels, start=2):
+		ttk.Label(form, text="Base").grid(row=3, column=1)
+		ttk.Label(form, text="Per level").grid(row=3, column=2)
+		for r, (key, label) in enumerate(labels, start=4):
 			ttk.Label(form, text=label + ":").grid(row=r, column=0,
 			                                       sticky="w", pady=1)
 			bv, gv = tk.IntVar(), tk.IntVar()
@@ -2493,24 +2571,41 @@ class Editor:
 			            width=6).grid(row=r, column=2, pady=1)
 			self.p_base[key] = bv
 			self.p_gain["g" + key] = gv
-		self.p_heal = None                   # retired: spells replace it
 		ttk.Label(form, text="Spells (max %d):"
-		          % gen_db.MAX_SPELLS).grid(row=7, column=0,
+		          % gen_db.MAX_SPELLS).grid(row=9, column=0,
 		                                    sticky="nw", pady=2)
 		self.p_spells = tk.Listbox(form, selectmode="multiple",
 		                           height=6, exportselection=False,
 		                           width=14)
-		self.p_spells.grid(row=7, column=1, columnspan=2,
+		self.p_spells.grid(row=9, column=1, columnspan=2,
 		                   sticky="w", pady=2)
+		spf = ttk.Frame(form)
+		spf.grid(row=10, column=0, columnspan=3, sticky="w", pady=2)
+		ttk.Label(spf, text="Walk sheet (64x32):").pack(side="left")
+		self.p_sprite = tk.StringVar()
+		self.p_sprite_cb = ttk.Combobox(
+			spf, textvariable=self.p_sprite, state="readonly",
+			width=12,
+			values=["(hero art)"] + self.player_sprite_stems())
+		self.p_sprite_cb.pack(side="left", padx=4)
+		ttk.Button(spf, text="Import...",
+		           command=self.p_import).pack(side="left", padx=2)
+		ttk.Label(form, text="Up to %d characters; %d fight at\n"
+		          "once. Members join/leave via NPC\n"
+		          "recruiting or script join/leave.\n"
+		          "Benched members keep their level."
+		          % (gen_db.MAX_PLAYERS, gen_db.PARTY_MAX)).grid(
+			row=11, column=0, columnspan=3, sticky="w", pady=4)
 		ttk.Button(form, text="Apply", command=self.p_apply) \
-		   .grid(row=9, column=0, pady=8, sticky="w")
+		   .grid(row=12, column=0, pady=8, sticky="w")
 		self.p_refresh()
 
 	def p_refresh(self, keep=0):
 		self.p_lb.delete(0, "end")
 		for p in self.db["players"]:
 			self.p_lb.insert("end", p["id"])
-		self.p_lb.selection_set(keep)
+		self.p_lb.selection_set(min(keep,
+		                            len(self.db["players"]) - 1))
 		self.p_select()
 
 	def p_select(self):
@@ -2518,7 +2613,12 @@ class Editor:
 		if i < 0:
 			return
 		p = self.db["players"][i]
+		self.p_id.set(p["id"])
 		self.p_name.set(p["name"])
+		self.p_class.set(p.get("class") or "hero")
+		self.p_sprite_cb["values"] = ["(hero art)"] \
+		                             + self.player_sprite_stems()
+		self.p_sprite.set(p.get("sprite") or "(hero art)")
 		for k, v in self.p_base.items():
 			v.set(p[k])
 		for k, v in self.p_gain.items():
@@ -2531,18 +2631,73 @@ class Editor:
 			if sid in p.get("spells", []):
 				self.p_spells.selection_set(k)
 
+	def p_preset(self):
+		"""Stamp the selected class template onto the form (Apply
+		still commits): stat bases/gains plus every existing spell
+		matching the class's effect (never invents spells)."""
+		t = self.CLASS_PRESETS.get(self.p_class.get())
+		if not t:
+			return
+		keys = ("hp", "mp", "atk", "def", "agi")
+		for k, v in zip(keys, t[:5]):
+			self.p_base[k].set(v)
+		for k, v in zip(keys, t[5:10]):
+			self.p_gain["g" + k].set(v)
+		effect = t[10]
+		self.p_spells.selection_clear(0, "end")
+		if effect:
+			n = 0
+			for k, sp in enumerate(self.db.get("spells", [])):
+				if sp.get("effect") == effect and n < gen_db.MAX_SPELLS:
+					self.p_spells.selection_set(k)
+					n += 1
+		self.say("Preset %s staged -- hit Apply" % self.p_class.get())
+
+	def p_refs(self, pid):
+		"""Maps referencing this player (recruiters + scripts)."""
+		refs = []
+		for m in self.maps["maps"]:
+			hit = any(n.get("joins") == pid
+			          for n in m.get("npcs", []))
+			hit = hit or any(
+				script_lang.uses_ident(ev.get("script", ""),
+				                       "player", pid)
+				for ev in m.get("events", []))
+			if hit:
+				refs.append(m["cid"])
+		return refs
+
 	def p_apply(self):
 		i = self.sel(self.p_lb)
 		if i < 0:
 			return
 		p = self.db["players"][i]
+		old = p["id"]
+		new = self.p_id.get().strip()
+		if not new.isidentifier():
+			messagebox.showerror("Player", "ID must be a C identifier.")
+			return
+		if new != old and any(x["id"] == new
+		                      for x in self.db["players"]):
+			messagebox.showerror("Player", "Duplicate id.")
+			return
+		name = self.p_name.get().strip() or p["name"]
+		if len(name) > gen_db.MAX_PLAYER_NAME:
+			messagebox.showerror("Player",
+				"Name over %d chars breaks the status window."
+				% gen_db.MAX_PLAYER_NAME)
+			return
 		sel = [self.p_spells.get(k)
 		       for k in self.p_spells.curselection()]
 		if len(sel) > gen_db.MAX_SPELLS:
 			messagebox.showerror("Player", "Max %d spells."
 			                     % gen_db.MAX_SPELLS)
 			return
-		p["name"] = self.p_name.get().strip() or p["name"]
+		p["id"] = new
+		p["name"] = name
+		p["class"] = self.p_class.get() or "hero"
+		p["sprite"] = None if self.p_sprite.get() == "(hero art)" \
+		              else self.p_sprite.get()
 		for k, v in self.p_base.items():
 			p[k] = v.get()
 		for k, v in self.p_gain.items():
@@ -2550,7 +2705,84 @@ class Editor:
 		p["spells"] = sel
 		p.pop("can_heal", None)
 		p.pop("heal_cost", None)
-		self.say("Player %s applied" % p["id"])
+		if new != old:                       # propagate everywhere
+			sp = self.project.get("start_party") or []
+			self.project["start_party"] = [new if x == old else x
+			                               for x in sp]
+			for m in self.maps["maps"]:
+				for n in m.get("npcs", []):
+					if n.get("joins") == old:
+						n["joins"] = new
+				for ev in m.get("events", []):
+					ev["script"] = script_lang.rename_ident(
+						ev.get("script", ""), "player", old, new)
+			if hasattr(self, "pr_party"):
+				self.refresh_start_party()
+		self.p_refresh(i)
+		self.say("Player %s applied" % new)
+
+	def p_import(self):
+		i = self.sel(self.p_lb)
+		if i < 0:
+			return
+		path = filedialog.askopenfilename(
+			filetypes=[("PNG images", "*.png")])
+		if not path:
+			return
+		img = Image.open(path)
+		if img.size != (64, 32):
+			messagebox.showerror("Walk sheet",
+				"Player sheet must be 64x32 like hero.png "
+				"(this is %dx%d)." % img.size)
+			return
+		p = self.db["players"][i]
+		dest = p["id"] + ".png"
+		os.makedirs(os.path.join(ROOT, "gfx", "players"),
+		            exist_ok=True)
+		shutil.copy(path, os.path.join(ROOT, "gfx", "players", dest))
+		p["sprite"] = p["id"]
+		self.p_select()
+		self.say("Imported %s" % dest)
+
+	def p_add(self):
+		if len(self.db["players"]) >= gen_db.MAX_PLAYERS:
+			messagebox.showerror("Players", "Max %d characters "
+			                     "(save format)." % gen_db.MAX_PLAYERS)
+			return
+		pid = self.new_id(self.db["players"], "player")
+		t = self.CLASS_PRESETS["hero"]
+		self.db["players"].append({
+			"id": pid, "name": pid.upper()[:gen_db.MAX_PLAYER_NAME],
+			"class": "hero", "sprite": None,
+			"hp": t[0], "mp": t[1], "atk": t[2], "def": t[3],
+			"agi": t[4], "ghp": t[5], "gmp": t[6], "gatk": t[7],
+			"gdef": t[8], "gagi": t[9], "spells": []})
+		self.p_refresh(len(self.db["players"]) - 1)
+		if hasattr(self, "pr_party"):
+			self.refresh_start_party()
+
+	def p_delete(self):
+		i = self.sel(self.p_lb)
+		if i < 0:
+			return
+		if len(self.db["players"]) <= 1:
+			messagebox.showerror("Delete", "Need at least one "
+			                     "character.")
+			return
+		pid = self.db["players"][i]["id"]
+		if pid in (self.project.get("start_party") or []):
+			messagebox.showerror("Delete",
+				"%s is in the start party (Project tab)." % pid)
+			return
+		refs = self.p_refs(pid)
+		if refs:
+			messagebox.showerror("Delete",
+				"Recruited or scripted in: %s" % ", ".join(refs))
+			return
+		del self.db["players"][i]
+		self.p_refresh()
+		if hasattr(self, "pr_party"):
+			self.refresh_start_party()
 
 	# ================= Project tab =================
 
@@ -2579,6 +2811,13 @@ class Editor:
 		self.p_start_frame = ttk.Frame(f)
 		self.p_start_frame.grid(row=5, column=0, columnspan=2, sticky="w")
 		self.refresh_start_items()
+
+		ttk.Label(f, text="Start party (leader first):").grid(
+			row=10, column=0, sticky="w", pady=(12, 2))
+		self.p_party_frame = ttk.Frame(f)
+		self.p_party_frame.grid(row=11, column=0, columnspan=2,
+		                        sticky="w")
+		self.refresh_start_party()
 
 		self.pr_music = {}
 		for r, (key, label) in enumerate(
@@ -2628,6 +2867,25 @@ class Editor:
 		self.refresh_title_preview()
 		self.say("Title image imported (converted at next Build)")
 
+	def refresh_start_party(self):
+		for w in self.p_party_frame.winfo_children():
+			w.destroy()
+		self.pr_party = []
+		start = self.project.get("start_party") or []
+		pids = [p["id"] for p in self.db["players"]]
+		labels = ("Leader:", "Member 2:", "Member 3:")
+		for r in range(gen_db.PARTY_MAX):
+			ttk.Label(self.p_party_frame, text=labels[r]).grid(
+				row=r, column=0, sticky="w", pady=1)
+			cur = start[r] if r < len(start) else "(none)"
+			v = tk.StringVar(value=cur)
+			vals = pids if r == 0 else ["(none)"] + pids
+			ttk.Combobox(self.p_party_frame, values=vals,
+			             textvariable=v, state="readonly",
+			             width=14).grid(row=r, column=1,
+			                            sticky="w", pady=1)
+			self.pr_party.append(v)
+
 	def refresh_start_items(self):
 		for w in self.p_start_frame.winfo_children():
 			w.destroy()
@@ -2645,6 +2903,13 @@ class Editor:
 		self.project["name"] = self.pr_name.get().strip() or "Miniquest"
 		self.project["start_items"] = {
 			iid: v.get() for iid, v in self.pr_start.items() if v.get() > 0}
+		party = []
+		for v in self.pr_party:
+			pid = v.get()
+			if pid and pid != "(none)" and pid not in party:
+				party.append(pid)
+		if party:                    # gen_db validates ids + count
+			self.project["start_party"] = party
 		for key, (var, _) in self.pr_music.items():
 			v = var.get()
 			self.project[key] = None if v == "(none)" else v

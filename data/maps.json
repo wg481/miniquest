@@ -3,7 +3,7 @@
  "start": {
   "map": "MAP_TOWN_WEST",
   "x": 9,
-  "y": 13
+  "y": 11
  },
  "death": {
   "map": "MAP_TOWN_WEST",
@@ -1287,6 +1287,19 @@
      "healer": true,
      "shop": [],
      "text": "Weary, traveler? Rest\nhere a moment...\n(The party recovers!)"
+    },
+    {
+     "x": 6,
+     "y": 1,
+     "joins": null,
+     "hidden_when": null,
+     "boss": null,
+     "healer": false,
+     "shop": [],
+     "sets_flag": "remove_player",
+     "alt": null,
+     "sprite": null,
+     "text": "I will remove the healer."
     }
    ],
    "warps": [
@@ -1332,6 +1345,13 @@
       "kind": "on_load"
      },
      "script": "if welcome_message\n\nelse\n\tsay \"Welcome to Miniquest!\"\n\tsay \"Use the DPAD to move. Press A to interact.\"\n\tsay \"Enjoy the engine!\"\n\tset_flag welcome_message 1\nend"
+    },
+    {
+     "trigger": {
+      "kind": "on_flag",
+      "flag": "remove_player"
+     },
+     "script": "say \"healer removed\"\nleave healer\nset_flag remove_player 0"
     }
    ]
   },

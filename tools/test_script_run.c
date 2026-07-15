@@ -68,14 +68,60 @@ void fieldRedraw(void) {}
 void musicPlay(int m) { (void)m; }
 void sfxHeal(void) {}
 
-/* ---- party logic mirrored from main.c ------------------------ */
+/* ---- party logic mirrored from main.c (minus the field-side
+ * restack, which is stubbed out here) --------------------------- */
 
 void partyRestore(void)
 {
-	for (int i = 0; i < PARTY_SIZE; i++) {
-		party.member[i].hp = party.member[i].maxhp;
-		party.member[i].mp = party.member[i].maxmp;
+	for (int i = 0; i < party.nParty; i++) {
+		Fighter *f = partyMember(i);
+		f->hp = f->maxhp;
+		f->mp = f->maxmp;
 	}
+}
+
+int partyChangedCount;
+void fieldPartyChanged(void) { partyChangedCount++; }
+
+bool partyHas(int playerId)
+{
+	for (int i = 0; i < party.nParty; i++)
+		if (party.slot[i] == playerId)
+			return true;
+	return false;
+}
+
+int partyJoin(int playerId)
+{
+	if (playerId < 0 || playerId >= N_PLAYERS)
+		return JOIN_ALREADY;
+	if (partyHas(playerId))
+		return JOIN_ALREADY;
+	if (party.nParty >= PARTY_MAX)
+		return JOIN_FULL;
+	party.slot[party.nParty++] = playerId;
+	Fighter *f = &party.roster[playerId];
+	f->hp = f->maxhp;
+	f->mp = f->maxmp;
+	f->defending = false;
+	fieldPartyChanged();
+	return JOIN_OK;
+}
+
+int partyLeave(int playerId)
+{
+	if (!partyHas(playerId))
+		return LEAVE_ABSENT;
+	if (party.nParty <= 1)
+		return LEAVE_LAST;
+	int k = 0;
+	while (party.slot[k] != playerId)
+		k++;
+	for (; k < party.nParty - 1; k++)
+		party.slot[k] = party.slot[k + 1];
+	party.nParty--;
+	fieldPartyChanged();
+	return LEAVE_OK;
 }
 
 bool itemAdd(int id)
@@ -115,10 +161,16 @@ static int fails;
 static void reset(void)
 {
 	memset(&party, 0, sizeof party);
-	for (int i = 0; i < PARTY_SIZE; i++) {
-		party.member[i].maxhp = 20;
-		party.member[i].hp = 20;
+	for (int i = 0; i < N_PLAYERS; i++) {
+		party.roster[i].name = playerDefs[i].name;
+		party.roster[i].level = 1;
+		party.roster[i].maxhp = 20;
+		party.roster[i].hp = 20;
 	}
+	party.nParty = N_PLAYERS < 2 ? 1 : 2;    /* hero + mage */
+	party.slot[0] = 0;
+	if (N_PLAYERS >= 2)
+		party.slot[1] = 1;
 	logbuf[0] = 0;
 	enteredMap = enteredX = enteredY = -1;
 	enterCount = battleCount = 0;
@@ -193,13 +245,13 @@ int main(void)
 
 	/* D2: battle + lose block, LOST -> heal + lose body + continue */
 	reset();
-	party.member[0].hp = 0;
-	party.member[1].hp = 0;
+	partyMember(0)->hp = 0;
+	partyMember(1)->hp = 0;
 	battleResult = BATTLE_LOST;
 	scriptRun(loseB);
 	CHECK(said("Spared."), "D2: lose body ran on loss");
 	CHECK(said("After battle."), "D2: script continued after end");
-	CHECK(party.member[0].hp == party.member[0].maxhp,
+	CHECK(partyMember(0)->hp == partyMember(0)->maxhp,
 	      "D2: party healed on spared loss");
 	CHECK(enterCount == 0, "D2: no death respawn");
 
@@ -213,7 +265,7 @@ int main(void)
 	CHECK(enteredMap == DEATH_MAP && enteredX == DEATH_X
 	      && enteredY == DEATH_Y, "E: death respawn");
 	CHECK(said("You awaken safe in town."), "E: death message");
-	CHECK(party.member[0].hp == party.member[0].maxhp,
+	CHECK(partyMember(0)->hp == partyMember(0)->maxhp,
 	      "E: party restored");
 
 	/* E2: plain battle, WON -> continues */
@@ -229,6 +281,70 @@ int main(void)
 	CHECK(enteredMap == MAP_OVERWORLD && enteredX == 6
 	      && enteredY == 9, "F: warp destination");
 	CHECK(!said("Never."), "F: nothing after warp runs");
+
+	/* H: join/leave opcodes (fixture events on MAP_TOWN_EAST;
+	 * fixture roster adds healer + sage after hero/mage) */
+	const int joinS = findScript(MAP_TOWN_EAST, EVT_TILE, 0);
+	const int leaveS = findScript(MAP_TOWN_EAST, EVT_TILE, 1);
+	const int fullS = findScript(MAP_TOWN_EAST, EVT_TILE, 2);
+	const int lastS = findScript(MAP_TOWN_EAST, EVT_TILE, 3);
+	CHECK(joinS >= 0 && leaveS >= 0 && fullS >= 0 && lastS >= 0,
+	      "fixture join/leave scripts resolved (%d %d %d %d)",
+	      joinS, leaveS, fullS, lastS);
+
+	/* H1: join at the kept level with a full restore */
+	reset();
+	party.roster[PLAYER_HEALER].level = 5;
+	party.roster[PLAYER_HEALER].maxhp = 40;
+	party.roster[PLAYER_HEALER].hp = 1;
+	scriptRun(joinS);                    /* join healer */
+	CHECK(party.nParty == 3, "H1: healer joined (n=%d)", party.nParty);
+	CHECK(party.slot[2] == PLAYER_HEALER, "H1: appended to lineup");
+	CHECK(party.roster[PLAYER_HEALER].level == 5,
+	      "H1: level preserved");
+	CHECK(party.roster[PLAYER_HEALER].hp == 40, "H1: full restore");
+	CHECK(said("joins the party!"), "H1: auto-announced");
+	CHECK(said("After join."), "H1: script continued");
+
+	/* H2: joining again is a silent no-op */
+	logbuf[0] = 0;
+	scriptRun(joinS);
+	CHECK(party.nParty == 3, "H2: no double join");
+	CHECK(!said("joins the party!"), "H2: silent when already in");
+	CHECK(said("After join."), "H2: script continued");
+
+	/* H3: full party refuses, script continues */
+	logbuf[0] = 0;
+	scriptRun(fullS);                    /* join sage at 3/3 */
+	CHECK(party.nParty == 3, "H3: sage refused");
+	CHECK(said("The party is full!"), "H3: refusal message");
+	CHECK(said("After full."), "H3: script continued");
+
+	/* H4: leave keeps the roster entry for a rejoin */
+	logbuf[0] = 0;
+	scriptRun(leaveS);                   /* leave mage */
+	CHECK(party.nParty == 2, "H4: mage left (n=%d)", party.nParty);
+	CHECK(party.slot[0] == PLAYER_HERO
+	      && party.slot[1] == PLAYER_HEALER,
+	      "H4: lineup compacted");
+	CHECK(said("leaves the party."), "H4: auto-announced");
+	CHECK(said("After leave."), "H4: script continued");
+
+	/* H5: leaving an absent member is silent */
+	logbuf[0] = 0;
+	scriptRun(leaveS);                   /* mage already gone */
+	CHECK(party.nParty == 2, "H5: no-op");
+	CHECK(!said("leaves the party."), "H5: silent");
+
+	/* H6: leaving the last member is ignored */
+	reset();
+	party.nParty = 1;
+	party.slot[0] = PLAYER_HERO;
+	logbuf[0] = 0;
+	scriptRun(lastS);                    /* leave hero */
+	CHECK(party.nParty == 1, "H6: last member kept");
+	CHECK(!said("leaves the party."), "H6: silent");
+	CHECK(said("After last."), "H6: script continued");
 
 	/* G: raised-flag mechanics */
 	reset();

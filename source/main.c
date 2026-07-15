@@ -16,9 +16,9 @@ Party party;
 
 void partyInit(void)
 {
-	for (int i = 0; i < PARTY_SIZE; i++) {
+	for (int i = 0; i < N_PLAYERS; i++) {
 		const PlayerDef *d = &playerDefs[i];
-		Fighter *f = &party.member[i];
+		Fighter *f = &party.roster[i];
 		f->name = d->name;
 		f->maxhp = f->hp = d->hp;
 		f->maxmp = f->mp = d->mp;
@@ -29,6 +29,9 @@ void partyInit(void)
 		f->exp = 0;
 		f->defending = false;
 	}
+	party.nParty = N_START_PARTY;
+	for (int i = 0; i < N_START_PARTY; i++)
+		party.slot[i] = startParty[i];
 	party.gold = 0;
 	for (int i = 0; i < N_ITEMS; i++)
 		party.items[i] = startItems[i];
@@ -38,10 +41,58 @@ void partyInit(void)
 
 void partyRestore(void)
 {
-	for (int i = 0; i < PARTY_SIZE; i++) {
-		party.member[i].hp = party.member[i].maxhp;
-		party.member[i].mp = party.member[i].maxmp;
+	for (int i = 0; i < party.nParty; i++) {
+		Fighter *f = partyMember(i);
+		f->hp = f->maxhp;
+		f->mp = f->maxmp;
 	}
+}
+
+bool partyHas(int playerId)
+{
+	for (int i = 0; i < party.nParty; i++)
+		if (party.slot[i] == playerId)
+			return true;
+	return false;
+}
+
+/* Add a roster character to the active lineup at their saved level,
+ * with full HP/MP (they rested while away). The caller reports
+ * JOIN_FULL to the player; JOIN_ALREADY is a silent no-op. */
+int partyJoin(int playerId)
+{
+	if (playerId < 0 || playerId >= N_PLAYERS)
+		return JOIN_ALREADY;             /* bad id: do nothing */
+	if (partyHas(playerId))
+		return JOIN_ALREADY;
+	if (party.nParty >= PARTY_MAX)
+		return JOIN_FULL;
+	party.slot[party.nParty++] = playerId;
+	Fighter *f = &party.roster[playerId];
+	f->hp = f->maxhp;
+	f->mp = f->maxmp;
+	f->defending = false;
+	fieldPartyChanged();
+	return JOIN_OK;
+}
+
+/* Remove a member; the roster entry keeps its level/exp for a later
+ * rejoin. Leaving the last member is a no-op (the party is never
+ * empty) -- the editor warns about scripts that could try. */
+int partyLeave(int playerId)
+{
+	if (!partyHas(playerId))
+		return LEAVE_ABSENT;
+	if (party.nParty <= 1)
+		return LEAVE_LAST;
+	int k = 0;
+	while (party.slot[k] != playerId)
+		k++;
+	for (; k < party.nParty - 1; k++)
+		party.slot[k] = party.slot[k + 1];
+	party.nParty--;
+	fieldPartyChanged();
+	return LEAVE_OK;
 }
 
 /* add one of an item, respecting the per-item carry cap */

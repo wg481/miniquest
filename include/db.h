@@ -52,6 +52,10 @@ typedef struct {
 	int ghp, gmp, gatk, gdef, gagi; /* gains per level */
 	u8 nSpells;
 	u8 spells[MAX_SPELLS];          /* indices into spellDefs */
+	const unsigned short *gfx;      /* 64x32 walking sheet (8 frames,
+	                                   hero.png layout) from png2ds
+	                                   (playerGfx_<stem>); NULL =
+	                                   hero.png art */
 } PlayerDef;
 
 #endif

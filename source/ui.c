@@ -126,19 +126,23 @@ void uiClearBelow(int row)
 	uiFrameClear(0, row, 31, 23);
 }
 
+/* Three 10-char columns (x = 1, 11, 21) hold up to PARTY_MAX
+ * members: name (gen_db caps it at 9 chars) / HP / MP, with levels
+ * and gold sharing the bottom row. */
 void uiStatus(void)
 {
 	uiFrame(0, 0, 31, 5);
 	for (int y = 1; y <= 4; y++)
 		clearRow(y);
-	for (int i = 0; i < PARTY_SIZE; i++) {
-		Fighter *f = &party.member[i];
-		int x = 2 + i * 15;
-		uiPrintAt(x, 1, "%-6s LV%2d", f->name, f->level);
-		uiPrintAt(x, 2, "HP %3d/%3d", f->hp, f->maxhp);
-		uiPrintAt(x, 3, "MP %3d/%3d", f->mp, f->maxmp);
+	for (int i = 0; i < party.nParty; i++) {
+		Fighter *f = partyMember(i);
+		int x = 1 + i * 10;
+		uiPrintAt(x, 1, "%-9s", f->name);
+		uiPrintAt(x, 2, "HP%3d/%3d", f->hp, f->maxhp);
+		uiPrintAt(x, 3, "MP%3d/%3d", f->mp, f->maxmp);
+		uiPrintAt(x, 4, "LV%2d", f->level);
 	}
-	uiPrintAt(2, 4, "GOLD %5d", party.gold);
+	uiPrintAt(25, 4, "G%5d", party.gold);
 }
 
 static void frame(void)

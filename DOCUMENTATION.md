@@ -1,4 +1,4 @@
-# Miniquest Documentation
+## Miniquest Documentation
 
 Here, I will go through pretty much the full engine and what can be changed inside the editor/files to make your game.
 
@@ -184,22 +184,22 @@ ID field is the in-engine reference. Press `Apply` to save changes. Press `Add` 
 
 ### Players
 
-Adjust the (currently 2 supported) party members.
+Adjust the party members. 6 can be saved, but only 3 may be active at a time.
 
-* Name: the name of the character in the game.
+* ID: used for reference in engine.
 
-* HP: Health points.
+* Name: the display name in game
 
-* MP: magic points.
+* Class preset: hero, mage, or healer. You cannot edit presets, but can edit the base and per level as needed, as well as spells.
 
-* Attack, Defense: used in damage calculation.
+* HP/MP/Attack/Defense/Agility: all for battle calculation/stats.
 
-* Agility: used in turn order calculation.
+* Spells: select up to six spells for the player to use.
 
-* Spells: supports a maximum of six spells. Select these to add them to the character's repertoire.
+* Walk sheet: a 64x32 hero art.
 
-Press `Apply` to save changes.
+Press `Apply` to save changes. Press `Add` for a new character, and `Delete` to remove the active character
 
 ## Events:
 
-See [Questscript](Questscript.md) for now to program in the proprietary engine scripting language!
+See [Questscript](questscript.md) for now to program in the proprietary engine scripting language!

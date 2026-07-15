@@ -50,6 +50,13 @@ typedef struct {
 	                            (npcSprite_<stem>); NULL = NPC1 art.
 	                            A boss NPC still shows its boss sprite;
 	                            this only overrides plain NPCs. */
+	s8 joins;                /* PLAYER_ recruited on talk (full party
+	                            = refusal message); -1 = none.
+	                            Excludes healer/shop/boss. */
+	s16 hideFlag;            /* NPC vanishes (not drawn, not solid,
+	                            not talkable) while this FLAG_ is set;
+	                            -1 = always present. A recruiter's
+	                            sets_flag typically doubles as this. */
 } Npc;
 
 typedef struct {

@@ -38,16 +38,14 @@ Read the [Documentation](DOCUMENTATION.md) for how to use Miniquest and Questscr
 
 Base files include a sample project to help you get started.
 
-## To-do:
-- [ ] Third party member.
-- [ ] Dynamic party member support.
+To start a new project, run `python3 tools\\new_project.py C:\\path\\to\\MyGame --name "My Game"`.
 
 ## Credits:
 
 devkitPro
 
-Developed with Claude Fable
+Programmed by me with help from generative AI.
 
 GFX art sourced from myself, rruss01 (hero, slime), Oracle of Ages/Seasons (troll, NPC1, NPC2)
 
-Battle music, fanfare, and sound effects created by me.
+Sound made by me.

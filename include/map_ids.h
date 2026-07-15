@@ -19,7 +19,7 @@ enum {
 
 #define START_MAP MAP_TOWN_WEST
 #define START_X   9
-#define START_Y   13
+#define START_Y   11
 #define DEATH_MAP MAP_TOWN_WEST
 #define DEATH_X   9
 #define DEATH_Y   13

@@ -15,6 +15,8 @@ extern const unsigned short enemyGfx_slime[2048];
 extern const unsigned short enemyGfx_troll[2048];
 extern const unsigned short bossGfx_grak[128];
 extern const unsigned short npcSprite_NPC2[128];
+extern const unsigned short playerGfx_healer[1024];
+extern const unsigned short playerGfx_mage[1024];
 #define BACKDROP_HW_TILES 384 /* 24x16, row-major */
 extern const unsigned short tilesetGfx_default[3072];
 extern const unsigned short tilesetGfx_testset[3072];
@@ -26,7 +28,6 @@ extern const unsigned short titleTiles[2240];
 extern const unsigned short titleMap[768];
 extern const unsigned short menuTiles8Data[160];
 extern const unsigned short heroGfxData[1024];
-extern const unsigned short mageGfxData[1024];
 extern const unsigned short npcGfxData[128];
 extern const unsigned short menuTiles4Data[96];
 extern const unsigned short menuPal16[16];

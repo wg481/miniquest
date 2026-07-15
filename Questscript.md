@@ -14,7 +14,7 @@ Scripts are attached to a map event with one of three triggers:
 | `on_tile` | the player steps onto its tile (optional gate flag) |
 
 A map can have up to 8 events. Scripts run to completion and block
-the game while they do.
+the game while they do — the player watches the cutscene.
 
 ## Ground rules
 
@@ -87,6 +87,35 @@ warp MAP_THRONE 6 10
 Map cid, then tile x, then y. **Nothing after a warp line runs** —
 the script ends and the destination map takes over (its `on_load`
 events fire as usual). Put the warp last.
+
+### join / leave — change the party
+
+```
+join healer
+say "You feel safer already."
+leave healer
+```
+
+`join` adds a roster character to the active lineup at whatever
+level they last held, with full HP and MP. If the party is already
+full (3 members) the game shows "The party is full!" and the script
+simply continues — check a flag afterwards if the story needs to
+know. If they're already in the party, nothing happens.
+
+`leave` removes a member; their level and experience are kept for a
+later rejoin. Leaving someone who isn't in the party does nothing.
+**Leaving the last member is ignored** — the party is never empty —
+so make sure someone joins first; the editor warns when a script
+could hit this.
+
+Both commands announce themselves ("X joins the party!" / "X leaves
+the party.") when they take effect, so you don't need a `say` for
+the mechanical part — save your text for the drama.
+
+NPCs can also recruit without a script: set "Joins party" in the
+NPC dialog. Pair it with a sets-flag that doubles as the NPC's
+"hidden when" flag and they'll step off the map and into your
+lineup.
 
 ### battle — fight a troop
 
@@ -184,12 +213,13 @@ it runs on *both* paths, after the block finishes.
 - An `on_tile` event re-arms when the player steps off the tile —
   step back on and it fires again. The event's optional gate flag
   fires the event only when that flag is **set** (good for opening
-  a path after a quest). For a single event, check and set a flag inside the
+  a path after a quest). For a one-shot — something that should
+  happen only the *first* time — check and set a flag inside the
   script instead:
   
   ```
   if shrine_visited
-      
+      say "The shrine is silent."
   else
       say "A voice: 'Only once may you ask.'"
       set_flag shrine_visited 1

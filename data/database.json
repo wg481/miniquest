@@ -26,7 +26,9 @@
    "gatk": 2,
    "gdef": 1,
    "gagi": 1,
-   "spells": []
+   "spells": [],
+   "class": "hero",
+   "sprite": null
   },
   {
    "id": "mage",
@@ -42,12 +44,32 @@
    "gdef": 1,
    "gagi": 2,
    "spells": [
-    "heal",
     "fire",
-    "healmore",
     "fire2",
-    "healall",
     "fire3"
+   ],
+   "class": "mage",
+   "sprite": "mage"
+  },
+  {
+   "id": "healer",
+   "name": "Healer",
+   "class": "healer",
+   "sprite": "healer",
+   "hp": 18,
+   "mp": 10,
+   "atk": 7,
+   "def": 6,
+   "agi": 7,
+   "ghp": 5,
+   "gmp": 3,
+   "gatk": 1,
+   "gdef": 1,
+   "gagi": 1,
+   "spells": [
+    "heal",
+    "healmore",
+    "healall"
    ]
   }
  ],
@@ -167,7 +189,8 @@
   "jenkins_chest",
   "grak_beaten",
   "overworld",
-  "welcome_message"
+  "welcome_message",
+  "remove_player"
  ],
  "spells": [
   {
@@ -182,9 +205,10 @@
    "id": "fire",
    "name": "Fire",
    "cost": 3,
-   "level": 2,
+   "level": 1,
    "effect": "fire",
-   "power": 8
+   "power": 8,
+   "all": false
   },
   {
    "id": "healmore",

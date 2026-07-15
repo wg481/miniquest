@@ -18,6 +18,11 @@ MAX_ENC_TROOPS = 4               # keep in sync with gen_maps MAX_ZONE_TROOPS
 MAX_FLAGS = 256                  # save format reserves vars[256] (v2);
                                  # editor reads this cap too
 MAX_SPELLS = 6                   # per player; keep in sync with db.h
+MAX_PLAYERS = 6                  # roster ceiling; save format reserves
+                                 # this many member slots (game.h)
+PARTY_MAX = 3                    # active members (game.h; status UI)
+MAX_PLAYER_NAME = 9              # status window column is 10 chars
+CLASSES = ("hero", "mage", "healer")
 SPELL_EFFECTS = ("heal", "fire")
 
 
@@ -38,6 +43,16 @@ def music_stems():
 		return set()
 	return {os.path.splitext(f)[0] for f in os.listdir(mdir)
 	        if f.lower().endswith(MUSIC_EXTS)}
+
+
+def player_sprite_stems():
+	"""gfx/players/<stem>.png walking sheets (64x32, hero layout).
+	Keep in sync with png2ds.py's scan."""
+	pdir = os.path.join(ROOT, "gfx", "players")
+	if not os.path.isdir(pdir):
+		return set()
+	return {os.path.splitext(f)[0] for f in os.listdir(pdir)
+	        if f.lower().endswith(".png")}
 
 
 def cstr(s):
@@ -64,8 +79,26 @@ def validate(db, project):
 				fail("duplicate %s id %r" % (kind, e["id"]))
 			seen.add(e["id"])
 		ids[kind] = seen
-	if len(db["players"]) != 2:
-		fail("exactly 2 players supported for now (status UI layout)")
+	if not (1 <= len(db["players"]) <= MAX_PLAYERS):
+		fail("1..%d players (the save format reserves %d roster "
+		     "slots)" % (MAX_PLAYERS, MAX_PLAYERS))
+	pstems = player_sprite_stems()
+	for p in db["players"]:
+		if len(p.get("name", "")) > MAX_PLAYER_NAME:
+			fail("player %s: name over %d chars breaks the "
+			     "3-column status window" % (p["id"], MAX_PLAYER_NAME))
+		cls = p.get("class")
+		if cls and cls not in CLASSES:
+			fail("player %s: class must be one of %s"
+			     % (p["id"], "/".join(CLASSES)))
+		sp = p.get("sprite")
+		if sp:
+			if not sp.isidentifier():
+				fail("player %s: sprite stem %r is not a valid "
+				     "identifier" % (p["id"], sp))
+			if sp not in pstems:
+				fail("player %s: sprite %r not found in gfx/players/"
+				     % (p["id"], sp))
 	if not db["enemies"]:
 		fail("need at least one enemy")
 	if not db["troops"]:
@@ -163,6 +196,15 @@ def validate(db, project):
 			fail("start_items: unknown item %r" % item_id)
 		if not (0 <= n <= ITEM_MAX):
 			fail("start_items: %s count must be 0..%d" % (item_id, ITEM_MAX))
+	start = project.get("start_party")
+	if not isinstance(start, list) or not (1 <= len(start) <= PARTY_MAX):
+		fail("project.json: start_party must list 1..%d player ids "
+		     "(run tools/migrate_party.py once)" % PARTY_MAX)
+	if len(set(start)) != len(start):
+		fail("start_party: duplicate member")
+	for pid in start:
+		if pid not in ids["players"]:
+			fail("start_party: unknown player %r" % pid)
 
 
 def generate(db, project, root=ROOT):
@@ -176,7 +218,8 @@ def generate(db, project, root=ROOT):
 	     "#ifndef DB_DATA_H", "#define DB_DATA_H", "",
 	     '#include "db.h"', "",
 	     "#define GAME_TITLE %s" % cstr(project["name"]),
-	     "#define PARTY_SIZE %d" % len(players),
+	     "#define N_PLAYERS  %d" % len(players),
+	     "#define N_START_PARTY %d" % len(project["start_party"]),
 	     "#define MAX_LEVEL  %d" % (len(db["exp_curve"]) - 1),
 	     "#define N_ENEMIES  %d" % len(enemies),
 	     "#define N_TROOPS   %d" % len(troops),
@@ -203,7 +246,8 @@ def generate(db, project, root=ROOT):
 	      "extern const EnemyDef  enemyDefs[N_ENEMIES];",
 	      "extern const TroopDef  troopDefs[N_TROOPS];",
 	      "extern const ItemDef   itemDefs[N_ITEMS];",
-	      "extern const PlayerDef playerDefs[PARTY_SIZE];",
+	      "extern const PlayerDef playerDefs[N_PLAYERS];",
+	      "extern const unsigned char startParty[N_START_PARTY];",
 	      "extern const SpellDef  spellDefs[];",
 	      "extern const BossDef   bossDefs[];",
 	      "extern const int expNeed[MAX_LEVEL + 1];",
@@ -256,17 +300,27 @@ def generate(db, project, root=ROOT):
 		         (b["id"], b["troop"].upper(), bmus))
 	if not bosses:
 		c.append("\t{ 0, 0, -1 },")
-	c += ["};", "", "const PlayerDef playerDefs[PARTY_SIZE] = {"]
+	c += ["};", ""]
+	for p in players:
+		if p.get("sprite"):
+			c.append("extern const unsigned short playerGfx_%s[];"
+			         % p["sprite"])
+	c += ["", "const PlayerDef playerDefs[N_PLAYERS] = {"]
 	for p in players:
 		pspells = p.get("spells", [])
 		slist = ", ".join(str(s_index[s]) for s in pspells) \
 		        if pspells else "0"
+		gfx = ("playerGfx_%s" % p["sprite"]) if p.get("sprite") \
+		      else "0"
 		c.append("\t{ %s, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d,"
-		         " %d, { %s } }," %
+		         " %d, { %s }, %s }," %
 		         (cstr(p["name"]), p["hp"], p["mp"], p["atk"], p["def"],
 		          p["agi"], p["ghp"], p["gmp"], p["gatk"], p["gdef"],
-		          p["gagi"], len(pspells), slist))
+		          p["gagi"], len(pspells), slist, gfx))
 	c += ["};", "",
+	      "const unsigned char startParty[N_START_PARTY] = { %s };" %
+	      ", ".join(cid("PLAYER", pid)
+	                for pid in project["start_party"]), "",
 	      "const int expNeed[MAX_LEVEL + 1] = { %s };" %
 	      ", ".join(str(v) for v in db["exp_curve"]), ""]
 	start = [0] * len(items)

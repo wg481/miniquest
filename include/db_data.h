@@ -4,14 +4,15 @@
 
 #include "db.h"
 
-#define GAME_TITLE "Miniquest Test"
-#define PARTY_SIZE 2
+#define GAME_TITLE "Miniquest Sample"
+#define N_PLAYERS  3
+#define N_START_PARTY 3
 #define MAX_LEVEL  10
 #define N_ENEMIES  2
 #define N_TROOPS   5
 #define N_ITEMS    2
 #define ITEM_MAX   6
-#define N_FLAGS    4
+#define N_FLAGS    5
 #define N_SPELLS   6
 #define N_BOSSES   1
 
@@ -19,13 +20,14 @@ enum { BOSS_GRAK = 0 };
 enum { ENEMY_SLIME = 0, ENEMY_TROLL };
 enum { TROOP_SLIME_SOLO = 0, TROOP_SLIME_PAIR, TROOP_TROLL_SOLO, TROOP_MIXED, TROOP_TROLL_PAIR };
 enum { ITEM_HERB = 0, ITEM_HERB2 };
-enum { PLAYER_HERO = 0, PLAYER_MAGE };
-enum { FLAG_JENKINS_CHEST = 0, FLAG_GRAK_BEATEN, FLAG_OVERWORLD, FLAG_WELCOME_MESSAGE };
+enum { PLAYER_HERO = 0, PLAYER_MAGE, PLAYER_HEALER };
+enum { FLAG_JENKINS_CHEST = 0, FLAG_GRAK_BEATEN, FLAG_OVERWORLD, FLAG_WELCOME_MESSAGE, FLAG_REMOVE_PLAYER };
 
 extern const EnemyDef  enemyDefs[N_ENEMIES];
 extern const TroopDef  troopDefs[N_TROOPS];
 extern const ItemDef   itemDefs[N_ITEMS];
-extern const PlayerDef playerDefs[PARTY_SIZE];
+extern const PlayerDef playerDefs[N_PLAYERS];
+extern const unsigned char startParty[N_START_PARTY];
 extern const SpellDef  spellDefs[];
 extern const BossDef   bossDefs[];
 extern const int expNeed[MAX_LEVEL + 1];

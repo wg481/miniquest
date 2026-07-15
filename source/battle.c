@@ -26,7 +26,7 @@ static int nEn;
 
 enum { CMD_NONE, CMD_ATTACK, CMD_DEFEND, CMD_ITEM, CMD_SPELL };
 typedef struct { int cmd, target, item, spell; } Action;
-static Action act[PARTY_SIZE];
+static Action act[PARTY_MAX];         /* per ACTIVE member */
 
 static void frame(void)
 {
@@ -86,8 +86,8 @@ static int aliveEnemies(void)
 static int aliveParty(void)
 {
 	int n = 0;
-	for (int i = 0; i < PARTY_SIZE; i++)
-		n += party.member[i].hp > 0;
+	for (int i = 0; i < party.nParty; i++)
+		n += partyMember(i)->hp > 0;
 	return n;
 }
 
@@ -113,10 +113,10 @@ static int pickEnemy(void)
 
 static int pickAlly(void)
 {
-	const char *items[PARTY_SIZE];
-	for (int i = 0; i < PARTY_SIZE; i++)
-		items[i] = party.member[i].name;
-	return uiMenu("ON WHOM?", items, PARTY_SIZE);
+	const char *items[PARTY_MAX];
+	for (int i = 0; i < party.nParty; i++)
+		items[i] = partyMember(i)->name;
+	return uiMenu("ON WHOM?", items, party.nParty);
 }
 
 static int pickItem(void)
@@ -172,9 +172,9 @@ static bool knowsSpells(const Fighter *f, const PlayerDef *pd)
 static bool chooseCommands(void)
 {
 	int i = 0;
-	while (i < PARTY_SIZE) {
-		Fighter *f = &party.member[i];
-		const PlayerDef *pd = &playerDefs[i];
+	while (i < party.nParty) {
+		Fighter *f = partyMember(i);
+		const PlayerDef *pd = &playerDefs[party.slot[i]];
 		f->defending = false;
 		act[i].cmd = CMD_NONE;
 		if (f->hp <= 0) {
@@ -195,7 +195,7 @@ static bool chooseCommands(void)
 		int s = uiMenu(f->name, items, n);
 		if (s < 0) {                         /* B: back to previous */
 			int p = i - 1;
-			while (p >= 0 && party.member[p].hp <= 0)
+			while (p >= 0 && partyMember(p)->hp <= 0)
 				p--;
 			if (p >= 0)
 				i = p;
@@ -262,7 +262,7 @@ static bool chooseCommands(void)
  * SFX first (the universal announce -> A -> SFX -> result rhythm) */
 static void healAlly(int t, int amount)
 {
-	Fighter *tf = &party.member[t];
+	Fighter *tf = partyMember(t);
 	tf->hp += amount;
 	if (tf->hp > tf->maxhp)
 		tf->hp = tf->maxhp;
@@ -281,7 +281,7 @@ static int fireDamage(const SpellDef *sp)
 
 static void castSpell(int i)
 {
-	Fighter *f = &party.member[i];
+	Fighter *f = partyMember(i);
 	const SpellDef *sp = &spellDefs[act[i].spell];
 	char buf[160];
 	int len;
@@ -300,8 +300,8 @@ static void castSpell(int i)
 		                  * silent" choice -- delete this line (and
 		                  * the sound.h comment) to restore silence */
 		if (sp->all) {
-			for (int k = 0; k < PARTY_SIZE; k++) {
-				Fighter *tf = &party.member[k];
+			for (int k = 0; k < party.nParty; k++) {
+				Fighter *tf = partyMember(k);
 				tf->hp += sp->power + rnd(8);
 				if (tf->hp > tf->maxhp)
 					tf->hp = tf->maxhp;
@@ -372,7 +372,7 @@ static void castSpell(int i)
 
 static void playerAct(int i)
 {
-	Fighter *f = &party.member[i];
+	Fighter *f = partyMember(i);
 	char buf[96];
 	if (f->hp <= 0)
 		return;
@@ -438,13 +438,13 @@ static void enemyAct(int e)
 
 	int t;
 	do {
-		t = rnd(PARTY_SIZE);
-	} while (party.member[t].hp <= 0);
+		t = rnd(party.nParty);
+	} while (partyMember(t)->hp <= 0);
 
 	/* DQ-style impact sequence: announce (wait for A), then the
 	 * hit lands -- SFX + bottom-screen shake -- then the stats
 	 * refresh and the damage line. */
-	Fighter *f = &party.member[t];
+	Fighter *f = partyMember(t);
 	snprintf(buf, sizeof buf, "%s attacks!", en[e].def->name);
 	uiMessage(buf);
 
@@ -471,8 +471,8 @@ static void enemyAct(int e)
 
 static void levelUp(int i)
 {
-	Fighter *f = &party.member[i];
-	const PlayerDef *pd = &playerDefs[i];
+	Fighter *f = partyMember(i);
+	const PlayerDef *pd = &playerDefs[party.slot[i]];
 	char buf[96];
 	while (f->level < MAX_LEVEL && f->exp >= expNeed[f->level + 1]) {
 		f->level++;
@@ -509,9 +509,9 @@ static void victory(void)
 	uiStatus();
 	uiMessage(buf);
 
-	for (int i = 0; i < PARTY_SIZE; i++)
-		if (party.member[i].hp > 0) {
-			party.member[i].exp += exp;
+	for (int i = 0; i < party.nParty; i++)
+		if (partyMember(i)->hp > 0) {
+			partyMember(i)->exp += exp;
 			levelUp(i);
 		}
 
@@ -551,19 +551,19 @@ int battleRun(int troopId)
 		if (chooseCommands())
 			return BATTLE_FLED;
 
-		int order[PARTY_SIZE + MAX_TROOP], n = 0;
-		for (int i = 0; i < PARTY_SIZE; i++)
-			if (party.member[i].hp > 0)
+		int order[PARTY_MAX + MAX_TROOP], n = 0;
+		for (int i = 0; i < party.nParty; i++)
+			if (partyMember(i)->hp > 0)
 				order[n++] = i;
 		for (int i = 0; i < nEn; i++)
 			if (en[i].alive)
 				order[n++] = 100 + i;
 
-		int key[PARTY_SIZE + MAX_TROOP];
+		int key[PARTY_MAX + MAX_TROOP];
 		for (int i = 0; i < n; i++) {
 			int a = (order[i] >= 100)
 			      ? en[order[i] - 100].def->agi
-			      : party.member[order[i]].agi;
+			      : partyMember(order[i])->agi;
 			key[i] = a + rnd(3);
 		}
 		for (int i = 0; i < n; i++)

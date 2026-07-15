@@ -6,5 +6,10 @@
  },
  "title_music": null,
  "battle_music": "mbat",
- "victory_music": "fanfare"
+ "victory_music": "fanfare",
+ "start_party": [
+  "hero",
+  "mage",
+  "healer"
+ ]
 }

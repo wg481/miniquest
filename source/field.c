@@ -24,19 +24,52 @@ static bool moving;
 static int dir = DIR_DOWN;
 static int walkFrames;                    /* animates the step frame   */
 
-/* mage follower: trails the hero DQ-style by repeating the step the
- * hero just made -- it walks into the tile the hero is leaving, so
- * it only ever visits tiles the hero proved walkable. */
-static int mx, my;                        /* mage position, pixels     */
-static int mtgx, mtgy;                    /* mage target while moving  */
-static int mdir = DIR_DOWN;
-static bool mageStep;                     /* mage slides this step     */
+/* followers: party members 2 and 3 trail the hero DQ-style, each
+ * repeating the step the walker AHEAD of it just made -- follower k
+ * walks into the tile its leader is leaving, so the chain only ever
+ * visits tiles the hero proved walkable. All targets are computed
+ * from PRE-step positions at commit time, which is what makes the
+ * caterpillar unfold one link per step from a stacked start. */
+#define N_FOLLOW (PARTY_MAX - 1)
+static int fx[N_FOLLOW], fy[N_FOLLOW];    /* positions, pixels         */
+static int ftgx[N_FOLLOW], ftgy[N_FOLLOW];/* targets while moving      */
+static int fdir[N_FOLLOW];
+static bool fstep[N_FOLLOW];              /* slides this step          */
 static bool pendingLoad;                  /* run on_load events next
                                              tick (never inside a
                                              running script) */
 
 static const int dx[4] = { 0, -1, 0, 1 }; /* DOWN LEFT UP RIGHT */
 static const int dy[4] = { 1, 0, -1, 0 };
+
+/* each active member's sheet into its walker slot (leader included:
+ * whoever holds party slot 0 walks the map). Inactive slots keep
+ * hero art but are never drawn. */
+static void loadWalkers(void)
+{
+	for (int k = 0; k < PARTY_MAX; k++) {
+		const unsigned short *g = NULL;
+		if (k < party.nParty)
+			g = playerDefs[party.slot[k]].gfx;
+		gfxLoadWalker(k, g);        /* NULL = hero.png art */
+	}
+}
+
+/* after a join/leave (script op or NPC recruit): new sheets, and the
+ * chain restacks on the leader -- exactly like entering a map, the
+ * newcomers unfold on the next step */
+void fieldPartyChanged(void)
+{
+	loadWalkers();
+	for (int k = 0; k < N_FOLLOW; k++) {
+		fx[k] = px;
+		fy[k] = py;
+		ftgx[k] = px;
+		ftgy[k] = py;
+		fdir[k] = dir;
+		fstep[k] = false;
+	}
+}
 
 static void hint(void)
 {
@@ -53,12 +86,15 @@ void fieldEnter(int newMap, int tx, int ty)
 	px = tx * 16;
 	py = ty * 16;
 	moving = false;
-	mx = px;                        /* stacked on the hero; unfolds  */
-	my = py;                        /* on the first step (DQ style)  */
-	mtgx = mx;
-	mtgy = my;
-	mdir = dir;
-	mageStep = false;
+	for (int k = 0; k < N_FOLLOW; k++) {
+		fx[k] = px;                 /* stacked on the hero; unfolds  */
+		fy[k] = py;                 /* one link per step (DQ style)  */
+		ftgx[k] = px;
+		ftgy[k] = py;
+		fdir[k] = dir;
+		fstep[k] = false;
+	}
+	loadWalkers();
 
 	gfxLoadTileset(map->tileset);   /* no-op if already resident */
 	gfxDrawMap(map);
@@ -141,10 +177,18 @@ static int rollEncounter(int tx, int ty)
 	return -1;
 }
 
+/* an NPC whose hide flag is set is gone: not solid, not talkable,
+ * not drawn (how recruited party members leave the map) */
+static bool npcHidden(const Npc *n)
+{
+	return n->hideFlag >= 0 && flagGet(n->hideFlag);
+}
+
 static const Npc *npcAt(int tx, int ty)
 {
 	for (int i = 0; i < map->nNpcs; i++)
-		if (map->npcs[i].x == tx && map->npcs[i].y == ty)
+		if (map->npcs[i].x == tx && map->npcs[i].y == ty
+		    && !npcHidden(&map->npcs[i]))
 			return &map->npcs[i];
 	return NULL;
 }
@@ -252,15 +296,15 @@ static void useItem(void)
 		uiMessage("It has no effect here.");
 		return;
 	}
-	const char *names[PARTY_SIZE];
-	for (int i = 0; i < PARTY_SIZE; i++)
-		names[i] = party.member[i].name;
-	int t = uiMenu("ON WHOM?", names, PARTY_SIZE);
+	const char *names[PARTY_MAX];
+	for (int i = 0; i < party.nParty; i++)
+		names[i] = partyMember(i)->name;
+	int t = uiMenu("ON WHOM?", names, party.nParty);
 	if (t < 0)
 		return;
 	party.items[it]--;
 	sfxHeal();
-	Fighter *f = &party.member[t];
+	Fighter *f = partyMember(t);
 	int amt = itemDefs[it].heal + rnd(6);
 	f->hp += amt;
 	if (f->hp > f->maxhp)
@@ -399,6 +443,32 @@ static int talk(void)
 			hint();
 			return EV_NONE;
 		}
+		if (n->joins >= 0) {
+			/* recruiter: greeting, then the join attempt. On
+			 * success the sets_flag fires -- typically also this
+			 * NPC's hide flag, so they step off the map and into
+			 * the party. A full party refuses and nothing sticks,
+			 * so talking again retries. */
+			if (n->altFlag >= 0 && flagGet(n->altFlag)) {
+				uiMessage(n->altText);
+				hint();
+				return EV_NONE;
+			}
+			uiMessage(n->text);
+			int r = partyJoin(n->joins);
+			if (r == JOIN_OK) {
+				uiStatus();
+				snprintf(buf, sizeof buf, "%s joins the party!",
+				         party.roster[n->joins].name);
+				uiMessage(buf);
+				if (n->setsFlag >= 0)
+					flagSet(n->setsFlag);
+			} else if (r == JOIN_FULL) {
+				uiMessage("The party is full!");
+			}
+			hint();
+			return EV_NONE;
+		}
 		if (n->altFlag >= 0 && flagGet(n->altFlag)) {
 			uiMessage(n->altText);
 		} else {
@@ -465,21 +535,30 @@ static void drawSprites(void)
 	gfxScroll(scx, scy);
 
 	int step = moving ? (walkFrames >> 3) & 1 : 0;
-	gfxHeroSprite(px - scx, py - scy, dir, step, false);
+	gfxWalkerSprite(0, px - scx, py - scy, dir, step, false);
 
-	/* hidden while stacked (hero's transparent pixels would show it),
-	 * offscreen-culled like NPCs otherwise; SPR_MAGE's high OAM index
-	 * keeps it under the hero during the unfold overlap */
-	{
-		int msx = mx - scx, msy = my - scy;
-		bool moff = (mx == px && my == py)
-		         || msx < -16 || msx > 255 || msy < -16 || msy > 191;
-		int mstep = mageStep ? (walkFrames >> 3) & 1 : 0;
-		gfxMageSprite(msx & 511, msy & 255, mdir, mstep, moff);
+	/* followers: hidden while exactly stacked on ANY walker ahead
+	 * (the front sprite's transparent pixels would show them
+	 * through -- covers the unfold AND a reverse step landing the
+	 * hero on a follower), offscreen-culled like NPCs otherwise;
+	 * the high OAM indices keep each one under its leaders during
+	 * partial overlaps */
+	for (int k = 0; k < N_FOLLOW; k++) {
+		bool active = k < party.nParty - 1;
+		bool stacked = fx[k] == px && fy[k] == py;
+		for (int j = 0; j < k; j++)
+			stacked |= fx[k] == fx[j] && fy[k] == fy[j];
+		int sx = fx[k] - scx, sy = fy[k] - scy;
+		bool off = !active || stacked
+		        || sx < -16 || sx > 255
+		        || sy < -16 || sy > 191;
+		int fs = fstep[k] ? (walkFrames >> 3) & 1 : 0;
+		gfxWalkerSprite(1 + k, sx & 511, sy & 255,
+		                fdir[k], fs, off);
 	}
 
 	for (int i = 0; i < MAX_NPCS; i++) {
-		if (i >= map->nNpcs) {
+		if (i >= map->nNpcs || npcHidden(&map->npcs[i])) {
 			gfxNpcSprite(i, 0, 0, true);
 			continue;
 		}
@@ -519,17 +598,25 @@ int fieldUpdate(void)
 				moving = true;
 				tgx = nx * 16;
 				tgy = ny * 16;
-				/* mage repeats the hero's last move: step into
-				 * the tile the hero is leaving. (px,py) is tile-
-				 * aligned here; a no-op while still stacked. */
-				mageStep = (mx != px || my != py);
-				if (mageStep) {
-					if      (px > mx) mdir = DIR_RIGHT;
-					else if (px < mx) mdir = DIR_LEFT;
-					else if (py > my) mdir = DIR_DOWN;
-					else              mdir = DIR_UP;
-					mtgx = px;
-					mtgy = py;
+				/* each follower repeats its leader's last move:
+				 * step into the tile the leader is leaving. All
+				 * positions here are PRE-step and tile-aligned,
+				 * so follower k+1 reads follower k's vacated
+				 * tile; a no-op while still stacked on it (that
+				 * IS the unfold). */
+				int lx = px, ly = py;
+				for (int k = 0; k < party.nParty - 1; k++) {
+					fstep[k] = (fx[k] != lx || fy[k] != ly);
+					if (fstep[k]) {
+						if      (lx > fx[k]) fdir[k] = DIR_RIGHT;
+						else if (lx < fx[k]) fdir[k] = DIR_LEFT;
+						else if (ly > fy[k]) fdir[k] = DIR_DOWN;
+						else                 fdir[k] = DIR_UP;
+						ftgx[k] = lx;
+						ftgy[k] = ly;
+					}
+					lx = fx[k];
+					ly = fy[k];
 				}
 			}
 		} else if (down & KEY_A) {
@@ -552,16 +639,19 @@ int fieldUpdate(void)
 		if (px > tgx) px -= STEP_SPEED;
 		if (py < tgy) py += STEP_SPEED;
 		if (py > tgy) py -= STEP_SPEED;
-		if (mageStep) {                  /* same speed, same 16px --   */
-			if (mx < mtgx) mx += STEP_SPEED;   /* arrives with the hero */
-			if (mx > mtgx) mx -= STEP_SPEED;
-			if (my < mtgy) my += STEP_SPEED;
-			if (my > mtgy) my -= STEP_SPEED;
+		for (int k = 0; k < N_FOLLOW; k++) {
+			if (!fstep[k])           /* same speed, same 16px --   */
+				continue;            /* arrives with the hero      */
+			if (fx[k] < ftgx[k]) fx[k] += STEP_SPEED;
+			if (fx[k] > ftgx[k]) fx[k] -= STEP_SPEED;
+			if (fy[k] < ftgy[k]) fy[k] += STEP_SPEED;
+			if (fy[k] > ftgy[k]) fy[k] -= STEP_SPEED;
 		}
 		if (px == tgx && py == tgy) {
 			moving = false;
-			mageStep = false;
-			ev = arrived();          /* may fieldEnter: restacks mage */
+			for (int k = 0; k < N_FOLLOW; k++)
+				fstep[k] = false;
+			ev = arrived();          /* may fieldEnter: restacks all */
 		}
 	}
 

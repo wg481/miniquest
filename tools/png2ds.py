@@ -16,7 +16,7 @@ Backgrounds (tilesets from data/tilesets.json + menu.png):
 	menu.png's five 8x8 tiles go in their own array (menuTiles8Data),
 	resident above the tileset slots at MENU_TILE_BASE.
 
-Sprites (hero.png, NPC1.png, enemy1.png, ENEMY2.png):
+Sprites (hero.png, gfx/players/*.png, NPC1.png, enemies, ...):
 	8bpp OBJ tile data sharing one 256-color sprite palette.
 	Frames are emitted as sequences of 8x8 tiles, row-major within the
 	frame, matching SpriteMapping_1D + SpriteColorFormat_256Color.
@@ -164,12 +164,29 @@ def main():
 	hero = load("hero.png")                          # 4 cols x 2 rows of 16x16
 	hero_bytes = frames_16(hero, obj_pal, 4, 2)
 
-	# mage follower: same sheet layout and frame order as hero.png
-	mage = load("mage.png")
-	if mage.size != (64, 32):
-		sys.exit("mage.png: must be 64x32 like hero.png (is %dx%d)"
-		         % (mage.size[0], mage.size[1]))
-	mage_bytes = frames_16(mage, obj_pal, 4, 2)
+	# per-player walking sheets: gfx/players/<stem>.png, 64x32,
+	# hero.png layout/frame order. Emitted as playerGfx_<stem>;
+	# players whose database entry has no sprite fall back to
+	# heroGfxData at load time (gfxLoadWalker). The old hardcoded
+	# gfx/mage.png was migrated to gfx/players/mage.png by
+	# tools/migrate_party.py.
+	player_sheet_data = []
+	pdir = os.path.join(GFX, "players")
+	if os.path.isdir(pdir):
+		for fn in sorted(os.listdir(pdir)):
+			if not fn.lower().endswith(".png"):
+				continue
+			stem = os.path.splitext(fn)[0]
+			if not stem.isidentifier():
+				sys.exit("player sheet %r: filename (minus .png) must"
+				         " be a C identifier" % fn)
+			img = Image.open(os.path.join(pdir, fn)).convert("RGBA")
+			if img.size != (64, 32):
+				sys.exit("player sheet %s: must be 64x32 like "
+				         "hero.png (is %dx%d)"
+				         % (fn, img.size[0], img.size[1]))
+			player_sheet_data.append(
+				(stem, frames_16(img, obj_pal, 4, 2)))
 
 	npc = load("NPC1.png")
 	npc_bytes = frames_16(npc, obj_pal, 1, 1)
@@ -306,7 +323,8 @@ def main():
 			emit_array(f, "tilesetGfx_%s" % tid, u16_words(tbytes))
 		emit_array(f, "menuTiles8Data", u16_words(menu8_bytes))
 		emit_array(f, "heroGfxData", u16_words(hero_bytes))
-		emit_array(f, "mageGfxData", u16_words(mage_bytes))
+		for sid, sbytes in player_sheet_data:
+			emit_array(f, "playerGfx_%s" % sid, u16_words(sbytes))
 		emit_array(f, "npcGfxData", u16_words(npc_bytes))
 		for sid, sbytes in npc_sprite_data:
 			emit_array(f, "npcSprite_%s" % sid, u16_words(sbytes))
@@ -343,6 +361,9 @@ def main():
 		for sid, sbytes in npc_sprite_data:
 			f.write("extern const unsigned short npcSprite_%s[%d];\n"
 			        % (sid, len(sbytes) // 2))
+		for sid, sbytes in player_sheet_data:
+			f.write("extern const unsigned short playerGfx_%s[%d];\n"
+			        % (sid, len(sbytes) // 2))
 		f.write("#define BACKDROP_HW_TILES 384 /* 24x16, row-major */\n")
 		for tid, tbytes in tileset_data:
 			f.write("extern const unsigned short tilesetGfx_%s[%d];\n"
@@ -356,7 +377,6 @@ def main():
 		             ("titleMap", len(tmap)),
 		             ("menuTiles8Data", len(menu8_bytes) // 2),
 		             ("heroGfxData", len(hero_bytes) // 2),
-		             ("mageGfxData", len(mage_bytes) // 2),
 		             ("npcGfxData", len(npc_bytes) // 2),
 
 		             ("menuTiles4Data", len(menu4) // 2),

@@ -18,8 +18,10 @@ static int loadedTileset = -1;   /* TILESET_ id resident in BG VRAM */
 
 #include "db.h"
 
-static u16 *heroGfx[HERO_FRAMES];
-static u16 *mageGfx[HERO_FRAMES];        /* follower: same sheet layout */
+/* walkers: party slot 0 (leader) + up to two followers. Each slot
+ * owns an 8-frame buffer, filled from a player's 64x32 sheet by
+ * gfxLoadWalker (NULL = hero.png art). */
+static u16 *walkerGfx[PARTY_MAX][HERO_FRAMES];
 static u16 *npcGfx[MAX_NPCS];            /* per-slot: NPC1 or a boss */
 static u16 *enemyGfx[MAX_TROOP];
 
@@ -40,18 +42,14 @@ void gfxInit(void)
 	oamInit(&oamMain, SpriteMapping_1D_128, false);
 	dmaCopy(objPal, SPRITE_PALETTE, 256 * 2);
 
-	for (int f = 0; f < HERO_FRAMES; f++) {
-		heroGfx[f] = oamAllocateGfx(&oamMain, SpriteSize_16x16,
-		                            SpriteColorFormat_256Color);
-		dmaCopy((u8 *)heroGfxData + f * FRAME16_BYTES,
-		        heroGfx[f], FRAME16_BYTES);
-	}
-	for (int f = 0; f < HERO_FRAMES; f++) {
-		mageGfx[f] = oamAllocateGfx(&oamMain, SpriteSize_16x16,
-		                            SpriteColorFormat_256Color);
-		dmaCopy((u8 *)mageGfxData + f * FRAME16_BYTES,
-		        mageGfx[f], FRAME16_BYTES);
-	}
+	for (int w = 0; w < PARTY_MAX; w++)
+		for (int f = 0; f < HERO_FRAMES; f++) {
+			walkerGfx[w][f] = oamAllocateGfx(&oamMain,
+			                       SpriteSize_16x16,
+			                       SpriteColorFormat_256Color);
+			dmaCopy((u8 *)heroGfxData + f * FRAME16_BYTES,
+			        walkerGfx[w][f], FRAME16_BYTES);
+		}
 	for (int i = 0; i < MAX_NPCS; i++) {
 		npcGfx[i] = oamAllocateGfx(&oamMain, SpriteSize_16x16,
 		                           SpriteColorFormat_256Color);
@@ -143,22 +141,29 @@ void gfxScroll(int px, int py)
 
 /* -- sprites --------------------------------------------------------- */
 
-void gfxHeroSprite(int sx, int sy, int dir, int step, bool hide)
+/* refill a walker slot's 8 frames from a player's sheet; NULL keeps
+ * the classic behavior: hero.png art */
+void gfxLoadWalker(int slot, const unsigned short *sheet)
 {
-	/* hero.png layout: row 0 = down f1,f2, left f1,f2
-	 *                  row 1 = up f1,f2, right f1,f2
-	 * so with DIR_DOWN,LEFT,UP,RIGHT = 0..3: frame = dir*2 + step */
-	oamSet(&oamMain, SPR_HERO, sx, sy, 0, 0,
-	       SpriteSize_16x16, SpriteColorFormat_256Color,
-	       heroGfx[dir * 2 + step], -1, false, hide, false, false, false);
+	const u8 *src = (const u8 *)(sheet ? sheet : heroGfxData);
+	for (int f = 0; f < HERO_FRAMES; f++)
+		dmaCopy(src + f * FRAME16_BYTES,
+		        walkerGfx[slot][f], FRAME16_BYTES);
 }
 
-/* mage.png uses the same layout, so the same frame math applies */
-void gfxMageSprite(int sx, int sy, int dir, int step, bool hide)
+/* every player sheet uses hero.png's layout:
+ *   row 0 = down f1,f2, left f1,f2 / row 1 = up f1,f2, right f1,f2
+ * so with DIR_DOWN,LEFT,UP,RIGHT = 0..3: frame = dir*2 + step */
+void gfxWalkerSprite(int slot, int sx, int sy, int dir, int step,
+                     bool hide)
 {
-	oamSet(&oamMain, SPR_MAGE, sx, sy, 0, 0,
+	static const int oam[PARTY_MAX] = {
+		SPR_HERO, SPR_FOLLOW0, SPR_FOLLOW1
+	};
+	oamSet(&oamMain, oam[slot], sx, sy, 0, 0,
 	       SpriteSize_16x16, SpriteColorFormat_256Color,
-	       mageGfx[dir * 2 + step], -1, false, hide, false, false, false);
+	       walkerGfx[slot][dir * 2 + step],
+	       -1, false, hide, false, false, false);
 }
 
 /* Load a slot's field sprite: a boss's 16x16, or NULL for NPC1 art. */
@@ -177,7 +182,8 @@ void gfxNpcSprite(int slot, int sx, int sy, bool hide)
 void gfxHideFieldSprites(void)
 {
 	oamSetHidden(&oamMain, SPR_HERO, true);
-	oamSetHidden(&oamMain, SPR_MAGE, true);
+	oamSetHidden(&oamMain, SPR_FOLLOW0, true);
+	oamSetHidden(&oamMain, SPR_FOLLOW1, true);
 	for (int i = 0; i < MAX_NPCS; i++)
 		oamSetHidden(&oamMain, SPR_NPC0 + i, true);
 }

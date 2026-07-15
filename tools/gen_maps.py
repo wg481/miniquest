@@ -181,6 +181,11 @@ def validate(data, tilesets=None):
 			if n.get("boss") and (shop or n.get("healer")):
 				fail("%s: NPC at (%d,%d): a boss can't be a healer "
 				     "or shopkeeper" % (name, n["x"], n["y"]))
+			if n.get("joins") and (shop or n.get("healer")
+			                       or n.get("boss")):
+				fail("%s: NPC at (%d,%d): a recruiter can't be a "
+				     "healer, shopkeeper, or boss"
+				     % (name, n["x"], n["y"]))
 			alt = n.get("alt")
 			if alt and (not alt.get("flag") or "text" not in alt):
 				fail("%s: NPC at (%d,%d): alt dialog needs flag + text"
@@ -319,6 +324,7 @@ def generate(data, root=ROOT, tilesets=None):
 			for n in m.get("npcs", []):
 				ck(n.get("sets_flag"), "NPC sets_flag")
 				ck((n.get("alt") or {}).get("flag"), "NPC alt dialog")
+				ck(n.get("hidden_when"), "NPC hidden_when")
 			for i, ev in enumerate(m.get("events", [])):
 				ck((ev.get("trigger") or {}).get("flag"),
 				   "event %d trigger" % i)
@@ -328,6 +334,12 @@ def generate(data, root=ROOT, tilesets=None):
 				if n.get("boss") and n["boss"] not in bosses:
 					fail("%s: NPC at (%d,%d): unknown boss %r"
 					     % (m["cid"], n["x"], n["y"], n["boss"]))
+		players = player_ids()
+		if players is not None:
+			for n in m.get("npcs", []):
+				if n.get("joins") and n["joins"] not in players:
+					fail("%s: NPC at (%d,%d): unknown player %r"
+					     % (m["cid"], n["x"], n["y"], n["joins"]))
 			for w in m.get("warps", []):
 				ck(w.get("flag"), "warp gate")
 			for ch in m.get("chests", []):
@@ -428,15 +440,18 @@ def generate(data, root=ROOT, tilesets=None):
 				       if n.get("boss") else "-1"
 				sprite = ("npcSprite_%s" % n["sprite"]) \
 				         if n.get("sprite") else "0"
+				joins = ("PLAYER_%s" % n["joins"].upper()) \
+				        if n.get("joins") else "-1"
 				c.append("\t\t\t{ %d, %d, %s, %s, %d, { %s },"
-				         " %s, %s, %s, %s, %s }," %
+				         " %s, %s, %s, %s, %s, %s, %s }," %
 				         (n["x"], n["y"], cstr(n["text"]),
 				          "true" if n.get("healer") else "false",
 				          len(shop), wares,
 				          flag_ref(n.get("sets_flag")),
 				          flag_ref(alt["flag"] if alt else None),
 				          cstr(alt["text"]) if alt else "0", boss,
-				          sprite))
+				          sprite, joins,
+				          flag_ref(n.get("hidden_when"))))
 			c.append("\t\t},")
 		warps = m.get("warps", [])
 		if warps:
@@ -533,6 +548,13 @@ def boss_ids():
 	if db is None:
 		return None
 	return {b["id"] for b in db.get("bosses", [])}
+
+
+def player_ids():
+	db = _load_db()
+	if db is None:
+		return None
+	return {p["id"] for p in db.get("players", [])}
 
 
 def main():

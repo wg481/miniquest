@@ -153,7 +153,7 @@ const MapDef maps[N_MAPS] = {
 		.backdrop = backdropGfx_plains,
 		.nNpcs = 1,
 		.npcs = {
-			{ 24, 20, "I am GRAK! None cross\nthe southern woods\nwhile I draw breath!", false, 0, { 0 }, FLAG_GRAK_BEATEN, FLAG_GRAK_BEATEN, "You bested me fairly.\nThe woods are yours,\nlittle ones.", BOSS_GRAK, 0 },
+			{ 24, 20, "I am GRAK! None cross\nthe southern woods\nwhile I draw breath!", false, 0, { 0 }, FLAG_GRAK_BEATEN, FLAG_GRAK_BEATEN, "You bested me fairly.\nThe woods are yours,\nlittle ones.", BOSS_GRAK, 0, -1, -1 },
 		},
 		.nWarps = 2,
 		.warps = {
@@ -173,11 +173,12 @@ const MapDef maps[N_MAPS] = {
 		.name = "Westhollow", .w = 20, .h = 16,
 		.tiles = tiles_MAP_TOWN_WEST,
 		.tileset = TILESET_DEFAULT,
-		.music = MOD_TOWNSTOLEN,
-		.nNpcs = 2,
+		.music = -1,
+		.nNpcs = 3,
 		.npcs = {
-			{ 13, 9, "Slimes are pushovers,\nbut don't cross the\nford unprepared.", false, 0, { 0 }, -1, -1, 0, -1, 0 },
-			{ 5, 8, "Weary, traveler? Rest\nhere a moment...\n(The party recovers!)", true, 0, { 0 }, -1, -1, 0, -1, 0 },
+			{ 13, 9, "Slimes are pushovers,\nbut don't cross the\nford unprepared.", false, 0, { 0 }, -1, -1, 0, -1, 0, -1, -1 },
+			{ 5, 8, "Weary, traveler? Rest\nhere a moment...\n(The party recovers!)", true, 0, { 0 }, -1, -1, 0, -1, 0, -1, -1 },
+			{ 6, 1, "I will remove the healer.", false, 0, { 0 }, FLAG_REMOVE_PLAYER, -1, 0, -1, 0, -1, -1 },
 		},
 		.nWarps = 3,
 		.warps = {
@@ -189,21 +190,22 @@ const MapDef maps[N_MAPS] = {
 		.signs = {
 			{ 8, 13, "* Westhollow *\nPop. 2 and a half" },
 		},
-		.nEvents = 1,
+		.nEvents = 2,
 		.events = {
 			{ EVT_LOAD, -1, 0, 0, 1 },
+			{ EVT_FLAG, FLAG_REMOVE_PLAYER, 0, 0, 2 },
 		},
 	},
 	{
 		.name = "Eastbrook", .w = 20, .h = 16,
 		.tiles = tiles_MAP_TOWN_EAST,
 		.tileset = TILESET_DEFAULT,
-		.music = MOD_TOWNSTOLEN,
+		.music = -1,
 		.nNpcs = 3,
 		.npcs = {
-			{ 6, 5, "You crossed the ford!\nSit, rest, be healed.\n(The party recovers!)", true, 0, { 0 }, -1, -1, 0, -1, 0 },
-			{ 15, 12, "You've seen all two of\nour towns. The rest of\nthe world is up to you.", false, 0, { 0 }, -1, -1, 0, -1, 0 },
-			{ 14, 11, "Herbs for the road?\nYou'll want them\nout there.", false, 1, { ITEM_HERB }, -1, -1, 0, -1, 0 },
+			{ 6, 5, "You crossed the ford!\nSit, rest, be healed.\n(The party recovers!)", true, 0, { 0 }, -1, -1, 0, -1, 0, -1, -1 },
+			{ 15, 12, "You've seen all two of\nour towns. The rest of\nthe world is up to you.", false, 0, { 0 }, -1, -1, 0, -1, 0, -1, -1 },
+			{ 14, 11, "Herbs for the road?\nYou'll want them\nout there.", false, 1, { ITEM_HERB }, -1, -1, 0, -1, 0, -1, -1 },
 		},
 		.nWarps = 1,
 		.warps = {
@@ -218,10 +220,10 @@ const MapDef maps[N_MAPS] = {
 		.name = "Jenkins' House", .w = 16, .h = 12,
 		.tiles = tiles_MAP_WH_HOUSE1,
 		.tileset = TILESET_DEFAULT,
-		.music = MOD_TOWNSTOLEN,
+		.music = -1,
 		.nNpcs = 1,
 		.npcs = {
-			{ 7, 4, "The 'ell you doing in my\nhouse?", false, 0, { 0 }, -1, FLAG_JENKINS_CHEST, "Did you just open my\nchest?! Get out!", -1, 0 },
+			{ 7, 4, "The 'ell you doing in my\nhouse?", false, 0, { 0 }, -1, FLAG_JENKINS_CHEST, "Did you just open my\nchest?! Get out!", -1, 0, -1, -1 },
 		},
 		.nWarps = 1,
 		.warps = {

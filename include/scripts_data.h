@@ -2,10 +2,10 @@
 #ifndef SCRIPTS_DATA_H
 #define SCRIPTS_DATA_H
 
-#define SCRIPT_COUNT 2
+#define SCRIPT_COUNT 3
 
-extern const unsigned char  scriptData[60];
-extern const unsigned short scriptOffset[2];
-extern const char scriptText[200];
+extern const unsigned char  scriptData[71];
+extern const unsigned short scriptOffset[3];
+extern const char scriptText[215];
 
 #endif

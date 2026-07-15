@@ -18,6 +18,8 @@ enum {
 	OP_JMP,          /* u16 target                                  */
 	OP_PUSH_FLAG,    /* u16 flagIdx -> reg                          */
 	OP_CHOICE,       /* u16 textOffset; YES -> reg=1, NO -> reg=0   */
+	OP_JOIN,         /* u16 playerIdx; full party = message + cont. */
+	OP_LEAVE,        /* u16 playerIdx; last member = silent no-op   */
 };
 
 /* Run one script to completion (blocking; may run battles, warp the
